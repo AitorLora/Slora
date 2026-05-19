@@ -1,26 +1,134 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-dm-sans);
+  --font-mono: var(--font-dm-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.75);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) * 1.5);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  /* Brand palette — Slora */
+  --navy:        #0A2540;
+  --navy-mid:    #0D2B4E;
+  --navy-light:  #1A4068;
+  --blue:        #1A6EBF;
+  --blue-light:  #E6F1FB;
+  --bl-accent:   #0EA5E9;
+
+  --background:  #F0F4F8;
+  --surface:     #FFFFFF;
+  --bg2:         #E8EDF3;
+
+  --foreground:  #0A2540;
+  --text-2:      #4A5568;
+  --text-3:      #8A96A3;
+
+  --card:        #FFFFFF;
+  --card-foreground: #0A2540;
+
+  --popover:     #FFFFFF;
+  --popover-foreground: #0A2540;
+
+  --primary:     #0A2540;
+  --primary-foreground: #FFFFFF;
+
+  --secondary:   #E6F1FB;
+  --secondary-foreground: #0A2540;
+
+  --muted:       #F0F4F8;
+  --muted-foreground: #8A96A3;
+
+  --accent:      #0EA5E9;
+  --accent-foreground: #FFFFFF;
+
+  --destructive: #EF4444;
+  --border:      #D1DBE8;
+  --border-2:    #B8C8DC;
+  --input:       #D1DBE8;
+  --ring:        #1A6EBF;
+
+  /* Status */
+  --green:       #22C55E;
+  --green-bg:    #DCFCE7;
+  --green-text:  #15803D;
+  --amber:       #F59E0B;
+  --amber-bg:    #FEF3C7;
+  --amber-text:  #92400E;
+  --red:         #EF4444;
+  --red-bg:      #FEE2E2;
+  --red-text:    #991B1B;
+  --gray-bg:     #F1F5F9;
+  --gray-text:   #475569;
+
+  --radius:      0.5rem;  /* 8px */
+
+  /* Sidebar */
+  --sidebar:              #0A2540;
+  --sidebar-foreground:   #FFFFFF;
+  --sidebar-primary:      #1A6EBF;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent:       rgba(255,255,255,0.06);
+  --sidebar-accent-foreground: #C5DCF0;
+  --sidebar-border:       rgba(255,255,255,0.08);
+  --sidebar-ring:         #1A6EBF;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-dm-sans), 'DM Sans', sans-serif;
+  }
+  html {
+    font-size: 14px;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Monospace helper */
+.font-mono {
+  font-family: var(--font-dm-mono), 'DM Mono', monospace;
+}
+
+/* Thin scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+@media print {
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  @page { margin: 1.5cm; size: A4; }
 }
