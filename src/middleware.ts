@@ -28,17 +28,14 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   const { pathname } = request.nextUrl;
 
-  // Si está en /login y ya tiene sesión → a su panel
   if (pathname === "/login" && user) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // Rutas públicas
   if (pathname === "/login") {
     return supabaseResponse;
   }
 
-  // Sin sesión → login
   if (!user) {
     return NextResponse.redirect(new URL("/login", request.url));
   }

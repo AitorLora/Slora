@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import {
-  assets, TARIFAS_MOTO, TARIFAS_BARCO, FUENTES, HORAS_CONSUMIDAS,
+  TARIFAS_MOTO, TARIFAS_BARCO, FUENTES, HORAS_CONSUMIDAS,
   DURACIONES_MOTO, DURACIONES_BARCO,
   type Booking, type BarcoCategoria,
 } from "@/lib/mock-data";
@@ -11,10 +11,29 @@ import { TimeInput } from "@/components/ui/TimeInput";
 
 type Paso = 1 | 2 | 3 | 4 | 5;
 
+interface ActivoDB {
+  id: string;
+  nombre: string;
+  matricula: string;
+  tipo: "moto" | "barco";
+  sociedad_id: string;
+  horas_motor: number;
+  horas_desde_servicio: number;
+  estado: string;
+  capacidad?: number;
+  categoria?: BarcoCategoria;
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
   onGuardar: (b: Omit<Booking, "id">) => void;
+}
+
+function categoriaBarco(a: { nombre: string; capacidad?: number }): BarcoCategoria {
+  if (a.nombre.toLowerCase().includes("quicksilver")) return "quicksilver";
+  if ((a.capacidad ?? 6) >= 7) return "sin_licencia_7";
+  return "sin_licencia_6";
 }
 
 function ahora() {
@@ -25,35 +44,58 @@ function ahora() {
 }
 
 export function NuevaReservaModal({ open, onClose, onGuardar }: Props) {
-  const [paso, setPaso] = useState<Paso>(1);
-  const [tipo, setTipo] = useState<"moto" | "barco" | null>(null);
+  const [activos, setActivos]       = useState<ActivoDB[]>([]);
+  const [sociedades, setSociedades] = useState<{ id: string; nombre: string }[]>([]);
+  const [paso, setPaso]       = useState<Paso>(1);
+  const [tipo, setTipo]       = useState<"moto" | "barco" | null>(null);
   const [cantidad, setCantidad] = useState(1);
   const [categoria, setCategoria] = useState<BarcoCategoria | null>(null);
   const [duracion, setDuracion] = useState("");
-  const [fuente, setFuente] = useState("Directo");
+  const [fuente, setFuente]   = useState("Directo");
   const [cliente, setCliente] = useState("");
-  const [hora, setHora] = useState(ahora());
+  const [hora, setHora]       = useState(ahora());
 
   useEffect(() => {
-    if (open) {
-      setPaso(1); setTipo(null); setCantidad(1); setCategoria(null);
-      setDuracion(""); setFuente("Directo"); setCliente(""); setHora(ahora());
-    }
+    if (!open) return;
+    setPaso(1); setTipo(null); setCantidad(1); setCategoria(null);
+    setDuracion(""); setFuente("Directo"); setCliente(""); setHora(ahora());
+
+    import("@/lib/supabase/client").then(({ createClient }) => {
+      const supabase = createClient();
+      Promise.all([
+        supabase.from("activos").select("id, nombre, matricula, tipo, sociedad_id, horas_motor, horas_desde_servicio, estado, capacidad"),
+        supabase.from("sociedades").select("id, nombre"),
+      ]).then(([{ data: a }, { data: s }]) => {
+        const conCategoria = (a ?? []).map(act => ({
+          ...act,
+          categoria: act.tipo === "barco" ? categoriaBarco(act) : undefined,
+        }));
+        setActivos(conCategoria);
+        setSociedades(s ?? []);
+      });
+    });
   }, [open]);
 
   if (!open) return null;
 
-  // Activo asignado por rotación (menos horas motor disponible del tipo/categoría)
+  const disponibles = (t: "moto" | "barco", cat?: BarcoCategoria) =>
+    activos.filter(a =>
+      a.tipo === t &&
+      a.estado === "ACTIVO" &&
+      (t === "moto" || !cat || a.categoria === cat)
+    );
+
+  // Activo asignado por rotación: el de menos horas de motor disponible del tipo/categoría
   const activoAsignado = (() => {
     if (!tipo) return null;
-    const disponibles = assets.filter(a =>
-      a.tipo === tipo &&
-      a.estado === "ACTIVO" &&
-      (tipo === "moto" || a.categoria === categoria)
-    );
-    if (!disponibles.length) return null;
-    return disponibles.reduce((min, a) => a.horas_motor < min.horas_motor ? a : min);
+    const disp = disponibles(tipo, tipo === "barco" ? (categoria ?? undefined) : undefined);
+    if (!disp.length) return null;
+    return disp.reduce((min, a) => a.horas_motor < min.horas_motor ? a : min);
   })();
+
+  const sociedad_nombre = activoAsignado
+    ? (sociedades.find(s => s.id === activoAsignado.sociedad_id)?.nombre ?? "")
+    : "";
 
   const precio = (() => {
     if (!tipo || !duracion) return 0;
@@ -64,7 +106,6 @@ export function NuevaReservaModal({ open, onClose, onGuardar }: Props) {
   })();
 
   const fianza = 300 * (tipo === "moto" ? cantidad : 1);
-
   const duraciones = tipo === "barco" ? DURACIONES_BARCO : DURACIONES_MOTO;
 
   const puedeAvanzar = (() => {
@@ -81,7 +122,7 @@ export function NuevaReservaModal({ open, onClose, onGuardar }: Props) {
       activo_id: activoAsignado.id,
       activo_nombre: activoAsignado.nombre,
       sociedad_id: activoAsignado.sociedad_id,
-      sociedad_nombre: activoAsignado.sociedad_nombre,
+      sociedad_nombre,
       tipo,
       cliente: cliente.trim(),
       fecha: new Date().toISOString().split("T")[0],
@@ -134,9 +175,7 @@ export function NuevaReservaModal({ open, onClose, onGuardar }: Props) {
                     </div>
                     <p className="text-[14px] font-semibold" style={{ color: "var(--foreground)" }}>{t === "moto" ? "Moto de agua" : "Barco"}</p>
                     <p className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>
-                      {t === "moto"
-                        ? `${assets.filter(a => a.tipo === "moto" && a.estado === "ACTIVO").length} disponibles`
-                        : `${assets.filter(a => a.tipo === "barco" && a.estado === "ACTIVO").length} disponibles`}
+                      {disponibles(t).length} disponibles
                     </p>
                   </button>
                 ))}
@@ -167,7 +206,7 @@ export function NuevaReservaModal({ open, onClose, onGuardar }: Props) {
               <p className="text-[11px] uppercase tracking-[0.08em] font-medium mb-3" style={{ color: "var(--text-3)" }}>¿Qué tipo de barco?</p>
               <div className="space-y-2">
                 {(Object.entries(TARIFAS_BARCO) as [BarcoCategoria, typeof TARIFAS_BARCO[BarcoCategoria]][]).map(([cat, info]) => {
-                  const disp = assets.filter(a => a.tipo === "barco" && a.estado === "ACTIVO" && a.categoria === cat).length;
+                  const disp = disponibles("barco", cat).length;
                   return (
                     <button key={cat} onClick={() => setCategoria(cat)} disabled={disp === 0}
                       className="w-full border-2 rounded-xl px-4 py-3 text-left transition-all disabled:opacity-40 disabled:cursor-not-allowed"
@@ -204,7 +243,7 @@ export function NuevaReservaModal({ open, onClose, onGuardar }: Props) {
               <p className="text-[11px] uppercase tracking-[0.08em] font-medium mb-3" style={{ color: "var(--text-3)" }}>Duración del alquiler</p>
               <div className={`grid gap-2 ${tipo === "barco" ? "grid-cols-2" : "grid-cols-4"}`}>
                 {duraciones.map(d => {
-                  const precio = tipo === "moto"
+                  const p = tipo === "moto"
                     ? TARIFAS_MOTO[d]
                     : categoria ? (d === "Medio día" ? TARIFAS_BARCO[categoria].medio_dia : TARIFAS_BARCO[categoria].dia_completo) : 0;
                   return (
@@ -212,7 +251,7 @@ export function NuevaReservaModal({ open, onClose, onGuardar }: Props) {
                       className="border-2 rounded-xl py-2.5 px-2 text-center transition-all"
                       style={{ borderColor: duracion === d ? "var(--blue)" : "var(--border)", background: duracion === d ? "var(--blue-light)" : "var(--surface)" }}>
                       <p className="text-[13px] font-semibold leading-tight" style={{ color: "var(--foreground)" }}>{d}</p>
-                      <p className="font-mono text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>€{precio}</p>
+                      <p className="font-mono text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>€{p}</p>
                     </button>
                   );
                 })}
@@ -256,7 +295,7 @@ export function NuevaReservaModal({ open, onClose, onGuardar }: Props) {
                   ["Tipo",      tipo === "moto" ? `${cantidad} moto${cantidad > 1 ? "s" : ""} de agua` : `${categoria ? TARIFAS_BARCO[categoria].label : ""}`],
                   ["Duración",  `${duracion} · Salida ${hora}`],
                   ["Origen",    fuente],
-                  ["Sociedad",  activoAsignado.sociedad_nombre],
+                  ["Sociedad",  sociedad_nombre],
                 ].map(([k, v], i, arr) => (
                   <div key={k} className="flex justify-between items-center px-4 py-2.5 text-[12px]"
                     style={{ borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>

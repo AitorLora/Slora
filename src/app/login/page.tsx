@@ -30,12 +30,12 @@ export default function LoginPage() {
     if (!user) { setError("Error al obtener sesión"); setLoading(false); return; }
 
     const { data: profile } = await supabase
-      .from("profiles")
-      .select("role, sociedad_id")
+      .from("perfiles")
+      .select("rol, sociedad_id")
       .eq("id", user.id)
       .single();
 
-    if (profile?.role === "inversor" && profile.sociedad_id) {
+    if (profile?.rol === "inversor" && profile.sociedad_id) {
       router.push(`/sociedades/${profile.sociedad_id}`);
     } else {
       router.push("/dashboard");
@@ -45,30 +45,69 @@ export default function LoginPage() {
   return (
     <div
       className="min-h-screen flex items-center justify-center px-4"
-      style={{ background: "var(--navy)" }}
+      style={{
+        background: "radial-gradient(ellipse 80% 60% at 50% 55%, #0D3060 0%, #0A2540 55%, #061828 100%)",
+      }}
     >
       <div className="w-full max-w-[360px]">
 
         {/* Logo */}
         <div className="text-center mb-8">
-          <p className="text-white text-[26px] font-semibold tracking-[-0.5px]">
-            SLORA <span style={{ color: "#7BAFD4", fontWeight: 400 }}></span>
+          <p
+            className="text-white"
+            style={{
+              fontFamily: "var(--font-cormorant)",
+              fontSize: "76px",
+              fontWeight: 300,
+              fontStyle: "italic",
+              letterSpacing: "0.12em",
+              lineHeight: 1,
+              textShadow: "0 2px 32px rgba(122,175,212,0.35), 0 1px 0 rgba(255,255,255,0.08)",
+            }}
+          >
+            Slora
           </p>
-          
+
+          {/* Separador decorativo */}
+          <div className="flex items-center justify-center gap-3 mt-4">
+            <div style={{ width: "36px", height: "1px", background: "linear-gradient(to right, transparent, #7BAFD4)" }} />
+            <span style={{ color: "#7BAFD4", fontSize: "9px", letterSpacing: "0.45em", textTransform: "uppercase", fontFamily: "var(--font-dm-sans)" }}>
+              Nautic Management
+            </span>
+            <div style={{ width: "36px", height: "1px", background: "linear-gradient(to left, transparent, #7BAFD4)" }} />
+          </div>
         </div>
 
-        {/* Card */}
-        <div className="rounded-2xl p-6 shadow-xl" style={{ background: "var(--surface)" }}>
-          <p className="text-[16px] font-semibold mb-1" style={{ color: "var(--foreground)" }}>
+        {/* Card glassmorphism */}
+        <div
+          className="rounded-2xl p-8"
+          style={{
+            background: "rgba(255,255,255,0.09)",
+            backdropFilter: "blur(24px)",
+            WebkitBackdropFilter: "blur(24px)",
+            border: "1px solid rgba(255,255,255,0.15)",
+            boxShadow: "0 12px 60px rgba(0,0,0,0.4), 0 0 80px rgba(26,110,191,0.12), inset 0 1px 0 rgba(255,255,255,0.12)",
+          }}
+        >
+          <p
+            className="mb-1"
+            style={{
+              fontFamily: "var(--font-cormorant)",
+              fontSize: "26px",
+              fontWeight: 400,
+              color: "rgba(255,255,255,0.95)",
+              letterSpacing: "0.02em",
+            }}
+          >
             Iniciar sesión
           </p>
-          <p className="text-[13px] mb-5" style={{ color: "var(--text-3)" }}>
+          <p className="text-[12px] mb-7" style={{ color: "rgba(122,175,212,0.8)" }}>
             Accede a tu panel de gestión
           </p>
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-6">
             <div>
-              <label className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--text-2)" }}>
+              <label className="block text-[10px] font-medium mb-2 uppercase tracking-widest" style={{ color: "rgba(122,175,212,0.7)" }}>
                 Email
               </label>
               <input
@@ -77,13 +116,19 @@ export default function LoginPage() {
                 onChange={e => setEmail(e.target.value)}
                 placeholder="tu@email.com"
                 required
-                className="w-full px-3 py-2.5 rounded-lg border text-[13px] outline-none focus:border-[var(--blue)] transition-colors"
-                style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
+                className="w-full py-2.5 text-[14px] outline-none transition-all bg-transparent"
+                style={{
+                  color: "rgba(255,255,255,0.9)",
+                  borderBottom: "1px solid rgba(122,175,212,0.35)",
+                  caretColor: "#7BAFD4",
+                }}
+                onFocus={e => (e.currentTarget.style.borderBottomColor = "rgba(122,175,212,0.9)")}
+                onBlur={e => (e.currentTarget.style.borderBottomColor = "rgba(122,175,212,0.35)")}
               />
             </div>
 
             <div>
-              <label className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--text-2)" }}>
+              <label className="block text-[10px] font-medium mb-2 uppercase tracking-widest" style={{ color: "rgba(122,175,212,0.7)" }}>
                 Contraseña
               </label>
               <input
@@ -92,13 +137,19 @@ export default function LoginPage() {
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full px-3 py-2.5 rounded-lg border text-[13px] outline-none focus:border-[var(--blue)] transition-colors"
-                style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
+                className="w-full py-2.5 text-[14px] outline-none transition-all bg-transparent"
+                style={{
+                  color: "rgba(255,255,255,0.9)",
+                  borderBottom: "1px solid rgba(122,175,212,0.35)",
+                  caretColor: "#7BAFD4",
+                }}
+                onFocus={e => (e.currentTarget.style.borderBottomColor = "rgba(122,175,212,0.9)")}
+                onBlur={e => (e.currentTarget.style.borderBottomColor = "rgba(122,175,212,0.35)")}
               />
             </div>
 
             {error && (
-              <p className="text-[12px] px-3 py-2 rounded-lg" style={{ color: "var(--red-text)", background: "var(--red-bg)" }}>
+              <p className="text-[12px] px-3 py-2 rounded-lg" style={{ color: "#FCA5A5", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.25)" }}>
                 {error}
               </p>
             )}
@@ -106,12 +157,16 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 rounded-lg text-[13px] font-semibold text-white transition-colors disabled:opacity-60"
-              style={{ background: "var(--blue)" }}
-              onMouseEnter={e => !loading && (e.currentTarget.style.background = "var(--navy-light)")}
-              onMouseLeave={e => (e.currentTarget.style.background = "var(--blue)")}
+              className="w-full py-3 rounded-xl text-[13px] font-semibold text-white transition-all disabled:opacity-50 mt-2"
+              style={{
+                background: "linear-gradient(135deg, #1A6EBF 0%, #0A2540 100%)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                letterSpacing: "0.08em",
+              }}
+              onMouseEnter={e => !loading && (e.currentTarget.style.background = "linear-gradient(135deg, #2280D8 0%, #0D3060 100%)")}
+              onMouseLeave={e => (e.currentTarget.style.background = "linear-gradient(135deg, #1A6EBF 0%, #0A2540 100%)")}
             >
-              {loading ? "Accediendo..." : "Entrar"}
+              {loading ? "Accediendo..." : "Entrar →"}
             </button>
           </form>
         </div>
