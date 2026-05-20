@@ -30,20 +30,25 @@ export default function PanelInversorPage({ params }: { params: Promise<{ id: st
   const [notFound404, setNotFound404] = useState(false);
 
   async function cargar() {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setNotFound404(true); return; }
-    const { data: profile } = await supabase.from("perfiles").select("sociedad_id, rol").eq("id", user.id).single();
-    if (profile?.rol !== "master" && profile?.sociedad_id !== id) { setNotFound404(true); return; }
-    const [{ data: soc }, { data: acts }, { data: revs }] = await Promise.all([
-      supabase.from("sociedades").select("id, nombre").eq("id", id).single(),
-      supabase.from("activos").select("*").eq("sociedad_id", id),
-      supabase.from("reservas").select("*").eq("sociedad_id", id).order("created_at", { ascending: false }),
-    ]);
-    if (!soc) { setNotFound404(true); return; }
-    setSociedad(soc);
-    setActivos(acts ?? []);
-    setReservas(revs ?? []);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setNotFound404(true); return; }
+      const { data: profile } = await supabase.from("perfiles").select("sociedad_id, rol").eq("id", user.id).single();
+      if (profile?.rol !== "master" && profile?.sociedad_id !== id) { setNotFound404(true); return; }
+      const [{ data: soc, error: e1 }, { data: acts, error: e2 }, { data: revs, error: e3 }] = await Promise.all([
+        supabase.from("sociedades").select("id, nombre").eq("id", id).single(),
+        supabase.from("activos").select("*").eq("sociedad_id", id),
+        supabase.from("reservas").select("*").eq("sociedad_id", id).order("created_at", { ascending: false }),
+      ]);
+      if (e1 || e2 || e3) throw e1 ?? e2 ?? e3;
+      if (!soc) { setNotFound404(true); return; }
+      setSociedad(soc);
+      setActivos(acts ?? []);
+      setReservas(revs ?? []);
+    } catch {
+      // error de red o permisos — la UI mostrará estado vacío
+    }
   }
 
   useEffect(() => { cargar(); }, [id]);

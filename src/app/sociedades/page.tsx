@@ -1,8 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/AppShell";
+import { redirect } from "next/navigation";
 
 export default async function SociedadesPage() {
   const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+  const { data: profile } = await supabase.from("perfiles").select("rol").eq("id", user.id).single();
+  if (profile?.rol !== "admin" && profile?.rol !== "master") redirect("/dashboard");
 
   const [{ data: sociedades }, { data: activos }, { data: reservas }] = await Promise.all([
     supabase.from("sociedades").select("id, nombre"),

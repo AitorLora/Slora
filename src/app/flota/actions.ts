@@ -24,6 +24,26 @@ export async function crearActivo(data: {
   revalidatePath("/flota");
 }
 
+export async function eliminarActivo(id: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("No autorizado");
+
+  const { data: reservasActivas } = await supabase
+    .from("reservas")
+    .select("id")
+    .eq("activo_id", id)
+    .in("estado", ["pendiente", "confirmada", "en_curso"]);
+
+  if (reservasActivas && reservasActivas.length > 0) {
+    throw new Error(`Este activo tiene ${reservasActivas.length} reserva(s) activa(s). Cancélalas antes de eliminar.`);
+  }
+
+  const { error } = await supabase.from("activos").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/flota");
+}
+
 export async function marcarRevision(id: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

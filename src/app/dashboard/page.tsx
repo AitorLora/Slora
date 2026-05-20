@@ -34,14 +34,14 @@ export default async function DashboardPage() {
     if (r.estado !== "cancelada") mesesMap[mes].proy += Number(r.ingreso_neto);
   }
 
-  const MESES_LABELS: Record<string, string> = {
-    "2026-04": "Abr", "2026-05": "May", "2026-06": "Jun",
-    "2026-07": "Jul", "2026-08": "Ago", "2026-09": "Sep",
-  };
+  function mesLabel(m: string) {
+    const [year, month] = m.split("-");
+    return new Date(Number(year), Number(month) - 1).toLocaleString("es-ES", { month: "short" });
+  }
 
   const meses = Object.entries(mesesMap)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, val]) => ({ mes: MESES_LABELS[key] ?? key, ...val }));
+    .map(([key, val]) => ({ mes: mesLabel(key), ...val }));
 
   const maxBar = Math.max(...meses.map(m => m.proy), 1);
 

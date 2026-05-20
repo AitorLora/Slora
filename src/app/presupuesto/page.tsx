@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
-import { TARIFAS_MOTO, TARIFAS_BARCO, DURACIONES_MOTO, DURACIONES_BARCO, assets, type BarcoCategoria } from "@/lib/mock-data";
+import { TARIFAS_MOTO, TARIFAS_BARCO, DURACIONES_MOTO, DURACIONES_BARCO, type BarcoCategoria } from "@/lib/mock-data";
+import { createClient } from "@/lib/supabase/client";
 import { JetSkiIcon } from "@/components/icons/JetSkiIcon";
 import { TimeInput } from "@/components/ui/TimeInput";
 
@@ -33,6 +34,31 @@ export default function PresupuestoPage() {
   const [duracion, setDuracion] = useState(DURACIONES_MOTO[0]);
   const [hora, setHora] = useState(horaActual());
   const [fecha, setFecha] = useState(hoy());
+  const [activosDB, setActivosDB] = useState<{ id: string; tipo: string; estado: string; categoria?: string }[]>([]);
+  const [ocupados, setOcupados] = useState<string[]>([]);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.from("activos").select("id, tipo, estado, capacidad, nombre").then(({ data }) => {
+      setActivosDB((data ?? []).map((a: any) => ({
+        ...a,
+        categoria: a.tipo === "barco"
+          ? (a.nombre?.toLowerCase().includes("quicksilver") ? "quicksilver" : (a.capacidad ?? 6) >= 7 ? "sin_licencia_7" : "sin_licencia_6")
+          : undefined,
+      })));
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!fecha) return;
+    const supabase = createClient();
+    supabase.from("reservas").select("activo_id").eq("fecha", fecha).neq("estado", "cancelada")
+      .then(({ data }) => setOcupados((data ?? []).map((r: any) => r.activo_id)));
+  }, [fecha]);
+
+  function dispBarco(cat: BarcoCategoria) {
+    return activosDB.filter(a => a.tipo === "barco" && a.estado === "ACTIVO" && a.categoria === cat && !ocupados.includes(a.id)).length;
+  }
 
   const duraciones = tipo === "barco" ? DURACIONES_BARCO : DURACIONES_MOTO;
 
@@ -98,7 +124,7 @@ export default function PresupuestoPage() {
               <p className="text-[11px] uppercase tracking-[0.08em] font-medium mb-3" style={{ color: "var(--text-3)" }}>Tipo de barco</p>
               <div className="space-y-2">
                 {(Object.entries(TARIFAS_BARCO) as [BarcoCategoria, typeof TARIFAS_BARCO[BarcoCategoria]][]).map(([cat, info]) => {
-                  const disp = assets.filter(a => a.tipo === "barco" && a.estado === "ACTIVO" && a.categoria === cat).length;
+                  const disp = dispBarco(cat);
                   return (
                     <button key={cat} onClick={() => setCategoria(cat)}
                       className="w-full border-2 rounded-xl px-4 py-3 text-left transition-all"
@@ -184,7 +210,19 @@ export default function PresupuestoPage() {
             </div>
           </div>
 
-          <button onClick={() => router.push("/reservas")}
+          <button onClick={() => {
+            const params = new URLSearchParams({
+              from: "presupuesto",
+              tipo,
+              cantidad: String(cantidad),
+              categoria,
+              duracion,
+              hora,
+              fecha,
+              fuente: "Directo",
+            });
+            router.push(`/reservas?${params.toString()}`);
+          }}
             className="w-full py-2.5 rounded-lg text-[13px] font-medium text-white transition-colors"
             style={{ background: "var(--navy)" }}
             onMouseEnter={e => (e.currentTarget.style.background = "var(--navy-light)")}

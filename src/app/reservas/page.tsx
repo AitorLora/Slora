@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
-import { NuevaReservaModal } from "@/components/reservas/NuevaReservaModal";
+import { NuevaReservaModal, type ModalInitialValues } from "@/components/reservas/NuevaReservaModal";
 import { createClient } from "@/lib/supabase/client";
 import { cambiarEstadoReserva, eliminarReserva, crearReserva } from "./actions";
-import type { Booking, BookingStatus } from "@/lib/mock-data";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import type { BarcoCategoria } from "@/lib/mock-data";
 
 const ESTADO_STYLE: Record<string, { label: string; color: string; bg: string }> = {
   pendiente:  { label: "Pendiente",  color: "var(--amber-text)", bg: "var(--amber-bg)" },
@@ -22,23 +23,50 @@ export default function ReservasPage() {
   const [reservas, setReservas] = useState<any[]>([]);
   const [sociedades, setSociedades] = useState<{ id: string; nombre: string }[]>([]);
   const [loading, setLoading]   = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [busqueda, setBusqueda]   = useState("");
+  const [modalOpen, setModalOpen]           = useState(false);
+  const [modalInitial, setModalInitial]     = useState<ModalInitialValues | undefined>();
+  const [busqueda, setBusqueda]             = useState("");
   const [estadoFiltro, setEstadoFiltro]     = useState("");
   const [sociedadFiltro, setSociedadFiltro] = useState("");
   const [menuAbierto, setMenuAbierto] = useState<number | null>(null);
+  const [confirmar, setConfirmar] = useState<{ id: number; cliente: string } | null>(null);
   async function cargar() {
-    const supabase = createClient();
-    const [{ data: res }, { data: soc }] = await Promise.all([
-      supabase.from("reservas").select("*").order("created_at", { ascending: false }),
-      supabase.from("sociedades").select("id, nombre"),
-    ]);
-    setReservas(res ?? []);
-    setSociedades(soc ?? []);
-    setLoading(false);
+    try {
+      const supabase = createClient();
+      const [{ data: res, error: e1 }, { data: soc, error: e2 }] = await Promise.all([
+        supabase.from("reservas").select("*").order("created_at", { ascending: false }),
+        supabase.from("sociedades").select("id, nombre"),
+      ]);
+      if (e1) throw e1;
+      if (e2) throw e2;
+      setReservas(res ?? []);
+      setSociedades(soc ?? []);
+    } catch {
+      // la UI mostrará lista vacía; el usuario puede recargar la página
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { cargar(); }, []);
+
+  // Detectar params de presupuesto en la URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("from") !== "presupuesto") return;
+    const iv: ModalInitialValues = {};
+    const t = params.get("tipo");
+    if (t === "moto" || t === "barco") iv.tipo = t;
+    const c = params.get("cantidad"); if (c) iv.cantidad = Number(c);
+    const cat = params.get("categoria"); if (cat) iv.categoria = cat as BarcoCategoria;
+    const dur = params.get("duracion"); if (dur) iv.duracion = dur;
+    const h = params.get("hora"); if (h) iv.hora = h;
+    const f = params.get("fecha"); if (f) iv.fecha = f;
+    const fu = params.get("fuente"); if (fu) iv.fuente = fu;
+    setModalInitial(iv);
+    setModalOpen(true);
+    window.history.replaceState({}, "", "/reservas");
+  }, []);
 
   // Realtime: escuchar cambios en reservas
   useEffect(() => {
@@ -62,7 +90,7 @@ export default function ReservasPage() {
 
   const actions = (
     <button
-      onClick={() => setModalOpen(true)}
+      onClick={() => { setModalInitial(undefined); setModalOpen(true); }}
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white transition-colors"
       style={{ background: "var(--navy)" }}
       onMouseEnter={e => (e.currentTarget.style.background = "var(--navy-light)")}
@@ -179,7 +207,7 @@ export default function ReservasPage() {
                 </div>
 
                 {/* Eliminar */}
-                <button onClick={async () => { await eliminarReserva(r.id); cargar(); }}
+                <button onClick={() => setConfirmar({ id: r.id, cliente: r.cliente })}
                   className="text-[18px] leading-none px-2 py-1 rounded flex-shrink-0 hover:bg-[var(--red-bg)]"
                   style={{ color: "var(--text-3)" }}
                   onMouseEnter={e => (e.currentTarget.style.color = "var(--red-text)")}
@@ -196,16 +224,31 @@ export default function ReservasPage() {
         <div className="fixed inset-0 z-10" onClick={() => setMenuAbierto(null)} />
       )}
 
+      <ConfirmModal
+        open={confirmar !== null}
+        titulo="Eliminar reserva"
+        mensaje={`¿Eliminar la reserva de ${confirmar?.cliente}? Esta acción no se puede deshacer.`}
+        labelConfirmar="Eliminar"
+        onCancelar={() => setConfirmar(null)}
+        onConfirmar={async () => {
+          if (!confirmar) return;
+          await eliminarReserva(confirmar.id);
+          setConfirmar(null);
+          cargar();
+        }}
+      />
+
       <NuevaReservaModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
+        initialValues={modalInitial}
         onGuardar={async (booking) => {
           await crearReserva({
             activo_id: booking.activo_id,
             sociedad_id: booking.sociedad_id,
             tipo: booking.tipo,
             cliente: booking.cliente,
-            fecha: new Date().toISOString().slice(0, 10),
+            fecha: booking.fecha,
             hora: booking.hora,
             duracion: booking.duracion,
             horas_consumidas: booking.horas_consumidas,
@@ -213,6 +256,7 @@ export default function ReservasPage() {
             fuente: booking.fuente,
             notas: booking.notas,
           });
+          cargar();
         }}
       />
     </AppShell>

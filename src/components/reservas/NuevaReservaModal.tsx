@@ -24,10 +24,21 @@ interface ActivoDB {
   categoria?: BarcoCategoria;
 }
 
+export interface ModalInitialValues {
+  tipo?: "moto" | "barco";
+  cantidad?: number;
+  categoria?: BarcoCategoria;
+  duracion?: string;
+  hora?: string;
+  fecha?: string;
+  fuente?: string;
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
-  onGuardar: (b: Omit<Booking, "id">) => void;
+  onGuardar: (b: Omit<Booking, "id">) => Promise<void>;
+  initialValues?: ModalInitialValues;
 }
 
 function categoriaBarco(a: { nombre: string; capacidad?: number }): BarcoCategoria {
@@ -36,6 +47,7 @@ function categoriaBarco(a: { nombre: string; capacidad?: number }): BarcoCategor
   return "sin_licencia_6";
 }
 
+function hoy() { return new Date().toISOString().split("T")[0]; }
 function ahora() {
   const d = new Date();
   const h = d.getHours().toString().padStart(2, "0");
@@ -43,9 +55,10 @@ function ahora() {
   return `${h}:${m}`;
 }
 
-export function NuevaReservaModal({ open, onClose, onGuardar }: Props) {
-  const [activos, setActivos]       = useState<ActivoDB[]>([]);
-  const [sociedades, setSociedades] = useState<{ id: string; nombre: string }[]>([]);
+export function NuevaReservaModal({ open, onClose, onGuardar, initialValues }: Props) {
+  const [activos, setActivos]           = useState<ActivoDB[]>([]);
+  const [reservasOcupadas, setOcupadas] = useState<string[]>([]); // activo_ids reservados en la fecha
+  const [sociedades, setSociedades]     = useState<{ id: string; nombre: string }[]>([]);
   const [paso, setPaso]       = useState<Paso>(1);
   const [tipo, setTipo]       = useState<"moto" | "barco" | null>(null);
   const [cantidad, setCantidad] = useState(1);
@@ -54,11 +67,23 @@ export function NuevaReservaModal({ open, onClose, onGuardar }: Props) {
   const [fuente, setFuente]   = useState("Directo");
   const [cliente, setCliente] = useState("");
   const [hora, setHora]       = useState(ahora());
+  const [fecha, setFecha]     = useState(hoy());
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError]         = useState("");
 
+  // Carga activos y sociedades al abrir
   useEffect(() => {
     if (!open) return;
-    setPaso(1); setTipo(null); setCantidad(1); setCategoria(null);
-    setDuracion(""); setFuente("Directo"); setCliente(""); setHora(ahora());
+    const iv = initialValues ?? {};
+    setPaso(1);
+    setTipo(iv.tipo ?? null);
+    setCantidad(iv.cantidad ?? 1);
+    setCategoria(iv.categoria ?? null);
+    setDuracion(iv.duracion ?? "");
+    setFuente(iv.fuente ?? "Directo");
+    setCliente("");
+    setHora(iv.hora ?? ahora());
+    setFecha(iv.fecha ?? hoy());
 
     import("@/lib/supabase/client").then(({ createClient }) => {
       const supabase = createClient();
@@ -76,22 +101,41 @@ export function NuevaReservaModal({ open, onClose, onGuardar }: Props) {
     });
   }, [open]);
 
+  // Recarga activos ocupados cuando cambia la fecha
+  useEffect(() => {
+    if (!open || !fecha) return;
+    import("@/lib/supabase/client").then(({ createClient }) => {
+      createClient()
+        .from("reservas")
+        .select("activo_id")
+        .eq("fecha", fecha)
+        .in("estado", ["pendiente", "confirmada", "en_curso"])
+        .then(({ data }) => {
+          setOcupadas((data ?? []).map((r: any) => r.activo_id));
+        });
+    });
+  }, [open, fecha]);
+
   if (!open) return null;
 
   const disponibles = (t: "moto" | "barco", cat?: BarcoCategoria) =>
     activos.filter(a =>
       a.tipo === t &&
       a.estado === "ACTIVO" &&
+      !reservasOcupadas.includes(a.id) &&
       (t === "moto" || !cat || a.categoria === cat)
     );
 
-  // Activo asignado por rotación: el de menos horas de motor disponible del tipo/categoría
-  const activoAsignado = (() => {
-    if (!tipo) return null;
+  // Activos asignados por rotación (los N de menos horas de motor, libres en la fecha)
+  const activosAsignados = (() => {
+    if (!tipo) return [];
     const disp = disponibles(tipo, tipo === "barco" ? (categoria ?? undefined) : undefined);
-    if (!disp.length) return null;
-    return disp.reduce((min, a) => a.horas_motor < min.horas_motor ? a : min);
+    const sorted = [...disp].sort((a, b) => a.horas_motor - b.horas_motor);
+    return tipo === "moto" ? sorted.slice(0, cantidad) : sorted.slice(0, 1);
   })();
+
+  const activoAsignado = activosAsignados[0] ?? null;
+  const suficientesActivos = tipo === "moto" ? activosAsignados.length >= cantidad : activosAsignados.length >= 1;
 
   const sociedad_nombre = activoAsignado
     ? (sociedades.find(s => s.id === activoAsignado.sociedad_id)?.nombre ?? "")
@@ -111,30 +155,41 @@ export function NuevaReservaModal({ open, onClose, onGuardar }: Props) {
   const puedeAvanzar = (() => {
     if (paso === 1) return tipo !== null;
     if (paso === 2) return tipo === "moto" ? cantidad >= 1 : categoria !== null;
-    if (paso === 3) return duracion !== "";
+    if (paso === 3) return duracion !== "" && fecha !== "" && suficientesActivos;
     if (paso === 4) return cliente.trim().length > 0;
     return true;
   })();
 
-  function guardar() {
-    if (!tipo || !activoAsignado || !cliente.trim()) return;
-    onGuardar({
-      activo_id: activoAsignado.id,
-      activo_nombre: activoAsignado.nombre,
-      sociedad_id: activoAsignado.sociedad_id,
-      sociedad_nombre,
-      tipo,
-      cliente: cliente.trim(),
-      fecha: new Date().toISOString().split("T")[0],
-      hora,
-      duracion,
-      horas_consumidas: HORAS_CONSUMIDAS[duracion] ?? 4,
-      ingreso_neto: precio,
-      fuente,
-      estado: "confirmada",
-      notas: "",
-    });
-    onClose();
+  async function guardar() {
+    if (!tipo || !activoAsignado || !cliente.trim() || !suficientesActivos) return;
+    setError("");
+    setGuardando(true);
+    const ingresoUnitario = tipo === "moto" ? (TARIFAS_MOTO[duracion] ?? 0) : precio;
+    try {
+      for (const activo of activosAsignados) {
+        await onGuardar({
+          activo_id: activo.id,
+          activo_nombre: activo.nombre,
+          sociedad_id: activo.sociedad_id,
+          sociedad_nombre: sociedades.find(s => s.id === activo.sociedad_id)?.nombre ?? "",
+          tipo,
+          cliente: cliente.trim(),
+          fecha,
+          hora,
+          duracion,
+          horas_consumidas: HORAS_CONSUMIDAS[duracion] ?? 4,
+          ingreso_neto: ingresoUnitario,
+          fuente,
+          estado: "confirmada",
+          notas: "",
+        });
+      }
+      onClose();
+    } catch (e: any) {
+      setError(e.message ?? "Error al guardar la reserva");
+    } finally {
+      setGuardando(false);
+    }
   }
 
   return (
@@ -175,7 +230,7 @@ export function NuevaReservaModal({ open, onClose, onGuardar }: Props) {
                     </div>
                     <p className="text-[14px] font-semibold" style={{ color: "var(--foreground)" }}>{t === "moto" ? "Moto de agua" : "Barco"}</p>
                     <p className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>
-                      {disponibles(t).length} disponibles
+                      {disponibles(t).length} disponibles hoy
                     </p>
                   </button>
                 ))}
@@ -237,7 +292,7 @@ export function NuevaReservaModal({ open, onClose, onGuardar }: Props) {
             </div>
           )}
 
-          {/* PASO 3 — Duración */}
+          {/* PASO 3 — Fecha, duración, hora, fuente */}
           {paso === 3 && (
             <div>
               <p className="text-[11px] uppercase tracking-[0.08em] font-medium mb-3" style={{ color: "var(--text-3)" }}>Duración del alquiler</p>
@@ -258,18 +313,38 @@ export function NuevaReservaModal({ open, onClose, onGuardar }: Props) {
               </div>
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <div>
+                  <label className="block text-[11px] mb-1.5" style={{ color: "var(--text-3)" }}>Fecha</label>
+                  <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border text-[13px] outline-none focus:border-[var(--blue)]"
+                    style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }} />
+                </div>
+                <div>
                   <label className="block text-[11px] mb-1.5" style={{ color: "var(--text-3)" }}>Hora de salida</label>
                   <TimeInput value={hora} onChange={setHora} />
                 </div>
-                <div>
-                  <label className="block text-[11px] mb-1.5" style={{ color: "var(--text-3)" }}>Origen</label>
-                  <select value={fuente} onChange={e => setFuente(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border text-[13px] outline-none focus:border-[var(--blue)]"
-                    style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}>
-                    {FUENTES.map(f => <option key={f}>{f}</option>)}
-                  </select>
-                </div>
               </div>
+              <div className="mt-3">
+                <label className="block text-[11px] mb-1.5" style={{ color: "var(--text-3)" }}>Origen</label>
+                <select value={fuente} onChange={e => setFuente(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border text-[13px] outline-none focus:border-[var(--blue)]"
+                  style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}>
+                  {FUENTES.map(f => <option key={f}>{f}</option>)}
+                </select>
+              </div>
+              {suficientesActivos ? (
+                <div className="mt-3 px-3 py-2 rounded-lg text-[12px]" style={{ background: "var(--muted)", color: "var(--text-2)" }}>
+                  <span className="font-medium" style={{ color: "var(--navy)" }}>
+                    {activosAsignados.length > 1 ? "Activos asignados:" : "Activo asignado:"}
+                  </span>{" "}
+                  {activosAsignados.map(a => `${a.nombre} (${a.matricula})`).join(" · ")}
+                </div>
+              ) : tipo ? (
+                <div className="mt-3 px-3 py-2 rounded-lg text-[12px]" style={{ background: "var(--red-bg)", color: "var(--red-text)" }}>
+                  {tipo === "moto"
+                    ? `Solo hay ${disponibles("moto").length} moto${disponibles("moto").length !== 1 ? "s" : ""} disponible${disponibles("moto").length !== 1 ? "s" : ""} para esta fecha. Reduce la cantidad o elige otra fecha.`
+                    : "Sin activos disponibles para esta fecha. Elige otra fecha."}
+                </div>
+              ) : null}
             </div>
           )}
 
@@ -291,8 +366,9 @@ export function NuevaReservaModal({ open, onClose, onGuardar }: Props) {
               <div className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--border)" }}>
                 {[
                   ["Cliente",   cliente],
-                  ["Activo",    `${activoAsignado.nombre} · ${activoAsignado.matricula}`],
+                  ["Activo",    activosAsignados.map(a => `${a.nombre} (${a.matricula})`).join(", ")],
                   ["Tipo",      tipo === "moto" ? `${cantidad} moto${cantidad > 1 ? "s" : ""} de agua` : `${categoria ? TARIFAS_BARCO[categoria].label : ""}`],
+                  ["Fecha",     new Date(fecha + "T12:00:00").toLocaleDateString("es-ES", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })],
                   ["Duración",  `${duracion} · Salida ${hora}`],
                   ["Origen",    fuente],
                   ["Sociedad",  sociedad_nombre],
@@ -322,18 +398,26 @@ export function NuevaReservaModal({ open, onClose, onGuardar }: Props) {
           )}
         </div>
 
+        {/* Error al guardar */}
+        {error && (
+          <div className="mx-5 mb-3 px-3 py-2 rounded-lg text-[12px]" style={{ background: "var(--red-bg)", color: "var(--red-text)" }}>
+            {error}
+          </div>
+        )}
+
         {/* Footer */}
         <div className="flex items-center justify-between px-5 py-4 border-t" style={{ borderColor: "var(--border)" }}>
           <button onClick={() => paso > 1 ? setPaso((paso - 1) as Paso) : onClose()}
-            className="px-4 py-2 rounded-lg border text-[13px] font-medium transition-colors hover:bg-[var(--muted)]"
+            disabled={guardando}
+            className="px-4 py-2 rounded-lg border text-[13px] font-medium transition-colors hover:bg-[var(--muted)] disabled:opacity-40"
             style={{ borderColor: "var(--border)", color: "var(--text-2)" }}>
             {paso === 1 ? "Cancelar" : "← Atrás"}
           </button>
           <button onClick={() => paso < 5 ? setPaso((paso + 1) as Paso) : guardar()}
-            disabled={!puedeAvanzar}
+            disabled={!puedeAvanzar || (paso === 5 && !suficientesActivos) || guardando}
             className="px-5 py-2 rounded-lg text-[13px] font-medium text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ background: "var(--navy)" }}>
-            {paso === 5 ? "Confirmar reserva" : "Siguiente →"}
+            {paso === 5 ? (guardando ? "Guardando..." : "Confirmar reserva") : "Siguiente →"}
           </button>
         </div>
       </div>

@@ -47,11 +47,11 @@ export default function ReportesPage() {
       supabase.from("reservas").select("*"),
       supabase.from("activos").select("id, nombre, matricula, tipo, sociedad_id, horas_motor"),
       supabase.from("sociedades").select("id, nombre"),
-    ]).then(([{ data: r }, { data: a }, { data: s }]) => {
+    ]).then(([{ data: r, error: e1 }, { data: a, error: e2 }, { data: s, error: e3 }]) => {
+      if (e1 || e2 || e3) return;
       setReservas(r ?? []);
       setActivos(a ?? []);
       setSociedades(s ?? []);
-      // Seleccionar el mes más reciente por defecto
       const meses = [...new Set((r ?? []).map((x: any) => x.fecha?.slice(0, 7)).filter(Boolean))].sort();
       if (meses.length) setMes(meses[meses.length - 1]);
     });
@@ -93,7 +93,7 @@ export default function ReportesPage() {
         style={{ borderColor: "var(--border)", color: "var(--foreground)", background: "var(--surface)" }}>
         ↓ CSV
       </button>
-      <button onClick={() => window.print()}
+      <button onClick={() => setTimeout(() => window.print(), 0)}
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white"
         style={{ background: "var(--navy)" }}
         onMouseEnter={e => (e.currentTarget.style.background = "var(--navy-light)")}

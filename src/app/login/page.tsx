@@ -90,7 +90,7 @@ export default function LoginPage() {
           }}
         >
           <p
-            className="mb-1"
+            className="mb-1 text-center"
             style={{
               fontFamily: "var(--font-cormorant)",
               fontSize: "26px",
@@ -101,7 +101,7 @@ export default function LoginPage() {
           >
             Iniciar sesión
           </p>
-          <p className="text-[12px] mb-7" style={{ color: "rgba(122,175,212,0.8)" }}>
+          <p className="text-[12px] mb-7 text-center" style={{ color: "rgba(122,175,212,0.8)" }}>
             Accede a tu panel de gestión
           </p>
 
@@ -157,11 +157,14 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-xl text-[13px] font-semibold text-white transition-all disabled:opacity-50 mt-2"
+              className="w-full py-3 rounded-xl text-white transition-all disabled:opacity-50 mt-2"
               style={{
                 background: "linear-gradient(135deg, #1A6EBF 0%, #0A2540 100%)",
                 border: "1px solid rgba(255,255,255,0.12)",
-                letterSpacing: "0.08em",
+                fontFamily: "var(--font-cormorant)",
+                fontSize: "18px",
+                fontWeight: 500,
+                letterSpacing: "0.06em",
               }}
               onMouseEnter={e => !loading && (e.currentTarget.style.background = "linear-gradient(135deg, #2280D8 0%, #0D3060 100%)")}
               onMouseLeave={e => (e.currentTarget.style.background = "linear-gradient(135deg, #1A6EBF 0%, #0A2540 100%)")}

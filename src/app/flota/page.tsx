@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { NuevoActivoModal } from "@/components/flota/NuevoActivoModal";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { createClient } from "@/lib/supabase/client";
-import { marcarRevision, crearActivo } from "./actions";
+import { marcarRevision, crearActivo, eliminarActivo } from "./actions";
 
 type AssetStatus = "ACTIVO" | "ALERTA" | "MANTENIMIENTO";
 type AssetType = "moto" | "barco";
@@ -24,17 +25,25 @@ export default function FlotaPage() {
   const [sociedades, setSociedades] = useState<{ id: string; nombre: string }[]>([]);
   const [loading, setLoading]     = useState(true);
   const [modalOpen, setModalOpen]       = useState(false);
+  const [confirmar, setConfirmar]       = useState<{ id: string; matricula: string; error?: string } | null>(null);
   const [tipoFiltro, setTipoFiltro]     = useState<AssetType | "">("");
   const [estadoFiltro, setEstadoFiltro] = useState<AssetStatus | "">("");
   async function cargar() {
-    const supabase = createClient();
-    const [{ data: a }, { data: s }] = await Promise.all([
-      supabase.from("activos").select("*").order("sociedad_id"),
-      supabase.from("sociedades").select("id, nombre"),
-    ]);
-    setActivos(a ?? []);
-    setSociedades(s ?? []);
-    setLoading(false);
+    try {
+      const supabase = createClient();
+      const [{ data: a, error: e1 }, { data: s, error: e2 }] = await Promise.all([
+        supabase.from("activos").select("*").order("sociedad_id"),
+        supabase.from("sociedades").select("id, nombre"),
+      ]);
+      if (e1) throw e1;
+      if (e2) throw e2;
+      setActivos(a ?? []);
+      setSociedades(s ?? []);
+    } catch {
+      // la UI mostrará lista vacía; el usuario puede recargar la página
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { cargar(); }, []);
@@ -69,28 +78,28 @@ export default function FlotaPage() {
     </div>
   );
 
-  const filters = (
-    <div className="flex items-center gap-2">
-      <select value={tipoFiltro} onChange={e => setTipoFiltro(e.target.value as AssetType | "")}
-        className="px-3 py-1.5 rounded-lg border text-[13px] outline-none cursor-pointer"
-        style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}>
-        <option value="">Todos los tipos</option>
-        <option value="moto">Motos de agua</option>
-        <option value="barco">Barcos</option>
-      </select>
-      <select value={estadoFiltro} onChange={e => setEstadoFiltro(e.target.value as AssetStatus | "")}
-        className="px-3 py-1.5 rounded-lg border text-[13px] outline-none cursor-pointer"
-        style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}>
-        <option value="">Todos los estados</option>
-        <option value="ACTIVO">Disponible</option>
-        <option value="ALERTA">Alerta</option>
-        <option value="MANTENIMIENTO">Mantenimiento</option>
-      </select>
-    </div>
-  );
 
   return (
-    <AppShell title="Flota" subtitle={`${filtrados.length} activos`} actions={<div className="flex items-center gap-3">{actions}{filters}</div>}>
+    <AppShell title="Flota" subtitle={`${filtrados.length} activos`} actions={actions}>
+
+      {/* Filtros */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <select value={tipoFiltro} onChange={e => setTipoFiltro(e.target.value as AssetType | "")}
+          className="px-3 py-2 rounded-lg border text-[13px] outline-none cursor-pointer"
+          style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}>
+          <option value="">Todos los tipos</option>
+          <option value="moto">Motos de agua</option>
+          <option value="barco">Barcos</option>
+        </select>
+        <select value={estadoFiltro} onChange={e => setEstadoFiltro(e.target.value as AssetStatus | "")}
+          className="px-3 py-2 rounded-lg border text-[13px] outline-none cursor-pointer"
+          style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}>
+          <option value="">Todos los estados</option>
+          <option value="ACTIVO">Disponible</option>
+          <option value="ALERTA">Alerta</option>
+          <option value="MANTENIMIENTO">Mantenimiento</option>
+        </select>
+      </div>
 
       {alertas.length > 0 && (
         <div className="flex items-start gap-3 px-4 py-3 rounded-xl mb-5 border"
@@ -127,57 +136,86 @@ export default function FlotaPage() {
                   </span>
                 </div>
 
-                <div className="grid px-4 py-2 text-[10px] uppercase tracking-[0.06em] font-medium"
-                  style={{ gridTemplateColumns: "14px 110px 90px 1fr 50px 90px 140px 120px 36px", gap: "12px", color: "var(--text-3)", background: "var(--muted)", borderBottom: "1px solid var(--border)" }}>
-                  <span /><span>Matrícula</span><span>Tipo</span><span>Modelo</span>
-                  <span>Cap.</span><span>H. Motor</span><span>Desde servicio</span><span>Estado</span><span />
-                </div>
+                <div className="overflow-x-auto">
+                  <div className="grid px-4 py-2 text-[10px] uppercase tracking-[0.06em] font-medium"
+                    style={{ gridTemplateColumns: "14px 110px 90px 1fr 50px 90px 140px 120px 36px 32px", gap: "12px", minWidth: "780px", color: "var(--text-3)", background: "var(--muted)", borderBottom: "1px solid var(--border)" }}>
+                    <span /><span>Matrícula</span><span>Tipo</span><span>Modelo</span>
+                    <span>Cap.</span><span>H. Motor</span><span>Desde servicio</span><span>Estado</span><span /><span />
+                  </div>
 
-                <div style={{ background: "var(--surface)" }}>
-                  {activosSoc.map((a, i) => {
-                    const badge = ESTADO_BADGE[a.estado as AssetStatus] ?? ESTADO_BADGE.ACTIVO;
-                    const horaColor = a.horas_desde_servicio >= 100 ? "var(--red)" : a.horas_desde_servicio >= 50 ? "var(--amber)" : "var(--green)";
-                    const pct = Math.min((a.horas_desde_servicio / 100) * 100, 100);
-                    const necesitaRevision = a.estado === "ALERTA" || a.estado === "MANTENIMIENTO";
-                    return (
-                      <div key={a.id}
-                        className="grid px-4 py-3 items-center hover:bg-[var(--muted)] transition-colors"
-                        style={{ gridTemplateColumns: "14px 110px 90px 1fr 50px 90px 140px 120px 36px", gap: "12px", borderBottom: i < activosSoc.length - 1 ? "1px solid var(--border)" : "none" }}>
-                        <span className="w-2 h-2 rounded-full block" style={{ background: ESTADO_DOT[a.estado as AssetStatus] }} />
-                        <span className="font-mono text-[12px] font-medium" style={{ color: "var(--navy)" }}>{a.matricula}</span>
-                        <span className="text-[12px]" style={{ color: "var(--text-3)" }}>{a.tipo === "moto" ? "Moto de agua" : "Barco"}</span>
-                        <span className="text-[12px]" style={{ color: "var(--text-2)" }}>{a.modelo}</span>
-                        <span className="text-[11px]" style={{ color: "var(--text-3)" }}>{a.capacidad ? `${a.capacidad} pax` : "—"}</span>
-                        <span className="font-mono text-[12px] font-medium" style={{ color: "var(--foreground)" }}>{a.horas_motor}h</span>
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 rounded-full overflow-hidden flex-1" style={{ background: "var(--border)", maxWidth: "52px" }}>
-                            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: horaColor }} />
+                  <div style={{ background: "var(--surface)", minWidth: "780px" }}>
+                    {activosSoc.map((a, i) => {
+                      const badge = ESTADO_BADGE[a.estado as AssetStatus] ?? ESTADO_BADGE.ACTIVO;
+                      const horaColor = a.horas_desde_servicio >= 100 ? "var(--red)" : a.horas_desde_servicio >= 50 ? "var(--amber)" : "var(--green)";
+                      const pct = Math.min((a.horas_desde_servicio / 100) * 100, 100);
+                      const necesitaRevision = a.estado === "ALERTA" || a.estado === "MANTENIMIENTO";
+                      return (
+                        <div key={a.id}
+                          className="grid px-4 py-3 items-center hover:bg-[var(--muted)] transition-colors"
+                          style={{ gridTemplateColumns: "14px 110px 90px 1fr 50px 90px 140px 120px 36px 32px", gap: "12px", borderBottom: i < activosSoc.length - 1 ? "1px solid var(--border)" : "none" }}>
+                          <span className="w-2 h-2 rounded-full block" style={{ background: ESTADO_DOT[a.estado as AssetStatus] }} />
+                          <span className="font-mono text-[12px] font-medium" style={{ color: "var(--navy)" }}>{a.matricula}</span>
+                          <span className="text-[12px]" style={{ color: "var(--text-3)" }}>{a.tipo === "moto" ? "Moto de agua" : "Barco"}</span>
+                          <span className="text-[12px]" style={{ color: "var(--text-2)" }}>{a.modelo}</span>
+                          <span className="text-[11px]" style={{ color: "var(--text-3)" }}>{a.capacidad ? `${a.capacidad} pax` : "—"}</span>
+                          <span className="font-mono text-[12px] font-medium" style={{ color: "var(--foreground)" }}>{a.horas_motor}h</span>
+                          <div className="flex items-center gap-2">
+                            <div className="h-1.5 rounded-full overflow-hidden flex-1" style={{ background: "var(--border)", maxWidth: "52px" }}>
+                              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: horaColor }} />
+                            </div>
+                            <span className="font-mono text-[12px] font-medium" style={{ color: horaColor }}>{a.horas_desde_servicio}h</span>
+                            <span className="text-[10px]" style={{ color: "var(--text-3)" }}>/ 100h</span>
                           </div>
-                          <span className="font-mono text-[12px] font-medium" style={{ color: horaColor }}>{a.horas_desde_servicio}h</span>
-                          <span className="text-[10px]" style={{ color: "var(--text-3)" }}>/ 100h</span>
-                        </div>
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium"
-                          style={{ color: badge.color, background: badge.bg }}>
-                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: badge.color }} />
-                          {badge.label}
-                        </span>
-                        {necesitaRevision ? (
-                          <button onClick={async () => { await marcarRevision(a.id); cargar(); }}
-                            title="Marcar revisión realizada"
-                            className="w-7 h-7 rounded-lg flex items-center justify-center text-[14px] hover:scale-110 transition-transform"
-                            style={{ background: "var(--green-bg)", color: "var(--green-text)" }}>
-                            🔧
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium"
+                            style={{ color: badge.color, background: badge.bg }}>
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: badge.color }} />
+                            {badge.label}
+                          </span>
+                          {necesitaRevision ? (
+                            <button onClick={async () => { await marcarRevision(a.id); cargar(); }}
+                              title="Marcar revisión realizada"
+                              className="w-7 h-7 rounded-lg flex items-center justify-center text-[14px] hover:scale-110 transition-transform"
+                              style={{ background: "var(--green-bg)", color: "var(--green-text)" }}>
+                              🔧
+                            </button>
+                          ) : <span className="w-7 h-7" />}
+                          <button
+                            onClick={() => setConfirmar({ id: a.id, matricula: a.matricula })}
+                            title="Eliminar activo"
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-[13px] hover:bg-[var(--red-bg)] transition-colors"
+                            style={{ color: "var(--text-3)" }}
+                            onMouseEnter={e => (e.currentTarget.style.color = "var(--red-text)")}
+                            onMouseLeave={e => (e.currentTarget.style.color = "var(--text-3)")}>
+                            ×
                           </button>
-                        ) : <span className="w-7 h-7" />}
-                      </div>
-                    );
-                  })}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             );
           })}
         </div>
       )}
+
+      <ConfirmModal
+        open={confirmar !== null}
+        titulo="Eliminar activo"
+        mensaje={confirmar?.error ?? `¿Eliminar ${confirmar?.matricula}? Esta acción no se puede deshacer.`}
+        labelConfirmar={confirmar?.error ? "Cerrar" : "Eliminar"}
+        onCancelar={() => setConfirmar(null)}
+        onConfirmar={async () => {
+          if (!confirmar || confirmar.error) { setConfirmar(null); return; }
+          try {
+            await eliminarActivo(confirmar.id);
+            setConfirmar(null);
+            cargar();
+          } catch (e: any) {
+            setConfirmar(prev => prev ? { ...prev, error: e.message } : null);
+          }
+        }}
+      />
 
       <NuevoActivoModal
         open={modalOpen}
