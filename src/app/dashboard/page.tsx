@@ -48,7 +48,7 @@ export default async function DashboardPage() {
   // Últimas 5 reservas
   const { data: recientes } = await supabase
     .from("reservas")
-    .select("id, cliente, activo_id, ingreso_neto, estado, fecha")
+    .select("id, cliente, activo_id, activo_nombre, ingreso_neto, estado, fecha")
     .order("created_at", { ascending: false })
     .limit(5);
 
@@ -116,13 +116,14 @@ export default async function DashboardPage() {
               r.estado === "en_curso"   ? "#E0F2FE" :
               r.estado === "cancelada"  ? "var(--gray-bg)" : "var(--amber-bg)";
             return (
-              <div key={r.id} className="flex items-center gap-3 px-4 py-3 border-b last:border-0 border-[var(--border)] hover:bg-[var(--muted)] transition-colors">
-                <span className="font-mono text-[11px] text-white px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: "var(--navy)" }}>
-                  {r.activo_id}
+              <div key={r.id} className="grid items-center px-4 py-3 border-b last:border-0 border-[var(--border)] hover:bg-[var(--muted)] transition-colors"
+                style={{ gridTemplateColumns: "1fr 180px 72px 90px" }}>
+                <span className="text-[13px] font-medium text-[var(--foreground)] truncate pr-3">{r.cliente}</span>
+                <span className="font-mono text-[11px] text-white px-1.5 py-0.5 rounded w-fit" style={{ background: "var(--navy)" }}>
+                  {r.activo_nombre ?? r.activo_id}
                 </span>
-                <span className="flex-1 text-[13px] font-medium text-[var(--foreground)] truncate">{r.cliente}</span>
-                <span className="font-mono text-[13px] font-semibold text-[var(--foreground)]">€{Number(r.ingreso_neto).toLocaleString("es-ES")}</span>
-                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ color: estadoColor, background: estadoBg }}>
+                <span className="font-mono text-[13px] font-semibold text-[var(--foreground)] text-right">€{Number(r.ingreso_neto).toLocaleString("es-ES")}</span>
+                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full text-center justify-self-end" style={{ color: estadoColor, background: estadoBg }}>
                   {r.estado.charAt(0).toUpperCase() + r.estado.slice(1).replace("_", " ")}
                 </span>
               </div>

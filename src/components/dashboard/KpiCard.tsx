@@ -13,6 +13,7 @@ export function KpiCard({ label, value, sub, accent = false }: KpiCardProps) {
         background: "var(--surface)",
         borderColor: "var(--border)",
         borderTop: accent ? "3px solid var(--blue)" : "1px solid var(--border)",
+        boxShadow: "var(--shadow-card)",
       }}
     >
       <p className="text-[11px] uppercase tracking-[0.05em] mb-1.5" style={{ color: "var(--text-3)" }}>

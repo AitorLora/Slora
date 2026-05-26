@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
 import { TARIFAS_MOTO, TARIFAS_BARCO, DURACIONES_MOTO, DURACIONES_BARCO, type BarcoCategoria } from "@/lib/mock-data";
 import { createClient } from "@/lib/supabase/client";
-import { JetSkiIcon } from "@/components/icons/JetSkiIcon";
 import { TimeInput } from "@/components/ui/TimeInput";
 
 type Tipo = "moto" | "barco";
@@ -19,7 +18,7 @@ function horaActual() {
 function SelectBtn({ active, onClick, disabled, children }: { active: boolean; onClick: () => void; disabled?: boolean; children: React.ReactNode }) {
   return (
     <button onClick={onClick} disabled={disabled}
-      className="border-2 rounded-xl py-3 px-2 text-center transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+      className="border-2 rounded-xl py-2 px-2 text-center transition-all disabled:opacity-40 disabled:cursor-not-allowed"
       style={{ borderColor: active ? "var(--blue)" : "var(--border)", background: active ? "var(--blue-light)" : "var(--surface)" }}>
       {children}
     </button>
@@ -30,7 +29,7 @@ export default function PresupuestoPage() {
   const router = useRouter();
   const [tipo, setTipo] = useState<Tipo>("moto");
   const [cantidad, setCantidad] = useState(1);
-  const [categoria, setCategoria] = useState<BarcoCategoria>("quicksilver");
+  const [categoria, setCategoria] = useState<BarcoCategoria>("con_licencia");
   const [duracion, setDuracion] = useState(DURACIONES_MOTO[0]);
   const [hora, setHora] = useState(horaActual());
   const [fecha, setFecha] = useState(hoy());
@@ -39,11 +38,11 @@ export default function PresupuestoPage() {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.from("activos").select("id, tipo, estado, capacidad, nombre").then(({ data }) => {
+    supabase.from("activos").select("id, tipo, estado, capacidad, licencia").then(({ data }) => {
       setActivosDB((data ?? []).map((a: any) => ({
         ...a,
         categoria: a.tipo === "barco"
-          ? (a.nombre?.toLowerCase().includes("quicksilver") ? "quicksilver" : (a.capacidad ?? 6) >= 7 ? "sin_licencia_7" : "sin_licencia_6")
+          ? (a.licencia ? "con_licencia" : (a.capacidad ?? 6) >= 7 ? "sin_licencia_7" : "sin_licencia_6")
           : undefined,
       })));
     });
@@ -81,7 +80,7 @@ export default function PresupuestoPage() {
 
   return (
     <AppShell title="Presupuesto" subtitle="Calcula el precio y convierte en reserva">
-      <div className="grid gap-5" style={{ gridTemplateColumns: "1fr 320px", alignItems: "start" }}>
+      <div className="grid gap-5 grid-cols-1 lg:grid-cols-[1fr_300px]" style={{ alignItems: "start" }}>
 
         {/* ── Formulario ── */}
         <div className="rounded-xl border p-5 space-y-6" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
@@ -92,10 +91,7 @@ export default function PresupuestoPage() {
             <div className="grid grid-cols-2 gap-3">
               {(["moto", "barco"] as Tipo[]).map(t => (
                 <SelectBtn key={t} active={tipo === t} onClick={() => cambiarTipo(t)}>
-                  <div className="flex justify-center mb-1">
-                    {t === "moto" ? <JetSkiIcon size={28} color="var(--blue)" /> : <span className="text-2xl">⛵</span>}
-                  </div>
-                  <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
+                  <p className="text-[13px] font-semibold tracking-wide" style={{ color: tipo === t ? "var(--blue)" : "var(--foreground)" }}>
                     {t === "moto" ? "Moto de agua" : "Barco"}
                   </p>
                 </SelectBtn>
@@ -110,8 +106,8 @@ export default function PresupuestoPage() {
               <div className="grid grid-cols-4 gap-2">
                 {[1,2,3,4].map(n => (
                   <SelectBtn key={n} active={cantidad === n} onClick={() => setCantidad(n)}>
-                    <p className="text-[20px] font-semibold" style={{ color: "var(--foreground)" }}>{n}</p>
-                    <p className="text-[10px]" style={{ color: "var(--text-3)" }}>{n === 1 ? "unidad" : "unidades"}</p>
+                    <p className="text-[18px] font-semibold" style={{ color: "var(--foreground)" }}>{n}</p>
+                    <p className="text-[10px]" style={{ color: "var(--text-3)" }}>{n === 1 ? "ud" : "uds"}</p>
                   </SelectBtn>
                 ))}
               </div>
@@ -172,6 +168,7 @@ export default function PresupuestoPage() {
             <div>
               <label className="block text-[11px] mb-1.5" style={{ color: "var(--text-3)" }}>Fecha</label>
               <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
+                min={hoy()}
                 className="w-full px-3 py-2 rounded-lg border text-[13px] outline-none focus:border-[var(--blue)]"
                 style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }} />
             </div>
@@ -197,7 +194,7 @@ export default function PresupuestoPage() {
               [`${unidades} ${tipo === "moto" ? `moto${unidades > 1 ? "s" : ""}` : TARIFAS_BARCO[categoria].label} × ${duracion}`, `€${precioUnit} c/u`],
               ["Total alquiler", `€${totalAlquiler.toLocaleString("es-ES")}`],
               [`Fianza (€300 × ${unidades})`, `€${fianza.toLocaleString("es-ES")}`],
-            ].map(([k, v], i) => (
+            ].map(([k, v]) => (
               <div key={k} className="flex justify-between items-center px-3 py-2.5 text-[12px]"
                 style={{ borderBottom: "1px solid var(--border)" }}>
                 <span style={{ color: "var(--text-3)" }}>{k}</span>

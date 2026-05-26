@@ -29,12 +29,14 @@ export default function ReservasPage() {
   const [estadoFiltro, setEstadoFiltro]     = useState("");
   const [sociedadFiltro, setSociedadFiltro] = useState("");
   const [menuAbierto, setMenuAbierto] = useState<number | null>(null);
-  const [confirmar, setConfirmar] = useState<{ id: number; cliente: string } | null>(null);
+  const [confirmar, setConfirmar] = useState<{ id: number; cliente: string; accion?: "cancelar" } | null>(null);
+  const [errorCarga, setErrorCarga] = useState("");
   async function cargar() {
+    setErrorCarga("");
     try {
       const supabase = createClient();
       const [{ data: res, error: e1 }, { data: soc, error: e2 }] = await Promise.all([
-        supabase.from("reservas").select("*").order("created_at", { ascending: false }),
+        supabase.from("reservas").select("*").gte("fecha", `${new Date().getFullYear() - 1}-01-01`).order("created_at", { ascending: false }),
         supabase.from("sociedades").select("id, nombre"),
       ]);
       if (e1) throw e1;
@@ -42,7 +44,7 @@ export default function ReservasPage() {
       setReservas(res ?? []);
       setSociedades(soc ?? []);
     } catch {
-      // la UI mostrará lista vacía; el usuario puede recargar la página
+      setErrorCarga("Error al cargar los datos. Recarga la página.");
     } finally {
       setLoading(false);
     }
@@ -80,7 +82,7 @@ export default function ReservasPage() {
 
   const filtradas = reservas.filter(r => {
     const q = busqueda.toLowerCase();
-    if (q && !r.cliente?.toLowerCase().includes(q) && !r.activo_id?.toLowerCase().includes(q) && !r.fuente?.toLowerCase().includes(q)) return false;
+    if (q && !r.cliente?.toLowerCase().includes(q) && !r.activo_nombre?.toLowerCase().includes(q) && !r.fuente?.toLowerCase().includes(q)) return false;
     if (estadoFiltro && r.estado !== estadoFiltro) return false;
     if (sociedadFiltro && r.sociedad_id !== sociedadFiltro) return false;
     return true;
@@ -102,6 +104,14 @@ export default function ReservasPage() {
 
   return (
     <AppShell title="Reservas" subtitle={`${filtradas.length} reservas`} actions={actions}>
+
+      {/* Banner error de carga */}
+      {errorCarga && (
+        <div className="px-4 py-3 rounded-xl mb-4 border text-[13px]"
+          style={{ background: "var(--red-bg)", borderColor: "var(--red-text)", color: "var(--red-text)" }}>
+          {errorCarga}
+        </div>
+      )}
 
       {/* Banner conflictos */}
       {conflictos > 0 && (
@@ -146,77 +156,115 @@ export default function ReservasPage() {
           <p>No hay reservas con estos filtros</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {filtradas.map(r => {
-            const est = ESTADO_STYLE[r.estado] ?? ESTADO_STYLE.pendiente;
-            const fecha = r.fecha ? new Date(r.fecha + "T12:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
-            return (
-              <div key={r.id}
-                className="flex items-center gap-3 px-4 py-3.5 rounded-xl border transition-colors hover:border-[var(--border-2)]"
-                style={{ background: "var(--surface)", borderColor: r.estado === "conflicto" ? "var(--red-text)" : "var(--border)" }}>
+        <div className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--border)" }}>
+          {/* Cabecera */}
+          <div className="grid px-4 py-2 text-[10px] uppercase tracking-[0.06em] font-medium"
+            style={{ gridTemplateColumns: "72px 1fr 1fr 88px 110px 96px 128px 32px", gap: "12px", color: "var(--text-3)", background: "var(--muted)", borderBottom: "1px solid var(--border)" }}>
+            <span>Ingreso</span>
+            <span>Activo</span>
+            <span>Cliente</span>
+            <span>Fecha</span>
+            <span>Duración</span>
+            <span>Canal</span>
+            <span>Estado</span>
+            <span />
+          </div>
 
-                <div className="w-16 flex-shrink-0">
-                  <p className="font-mono text-[18px] font-semibold" style={{ color: "var(--foreground)" }}>
+          {/* Filas */}
+          <div style={{ background: "var(--surface)" }}>
+            {filtradas.map((r, i) => {
+              const est = ESTADO_STYLE[r.estado] ?? ESTADO_STYLE.pendiente;
+              const fecha = r.fecha ? new Date(r.fecha + "T12:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
+              return (
+                <div key={r.id}
+                  className="grid px-4 py-3 items-center hover:bg-[var(--muted)] transition-colors"
+                  style={{
+                    gridTemplateColumns: "72px 1fr 1fr 88px 110px 96px 128px 32px",
+                    gap: "12px",
+                    borderBottom: i < filtradas.length - 1 ? "1px solid var(--border)" : "none",
+                    borderLeft: r.estado === "conflicto" ? "3px solid var(--red-text)" : "3px solid transparent",
+                  }}>
+
+                  {/* Ingreso */}
+                  <span className="font-mono text-[15px] font-semibold" style={{ color: "var(--foreground)" }}>
                     €{Number(r.ingreso_neto).toLocaleString("es-ES")}
-                  </p>
-                </div>
+                  </span>
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="font-mono text-[11px] text-white px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: "var(--navy)" }}>
-                      {r.activo_id}
+                  {/* Activo */}
+                  <div className="min-w-0">
+                    <span className="font-mono text-[11px] text-white px-1.5 py-0.5 rounded inline-block truncate max-w-full" style={{ background: "var(--navy)" }}>
+                      {r.activo_nombre ?? r.activo_id}
                     </span>
-                    <span className="text-[13px] font-medium truncate" style={{ color: "var(--foreground)" }}>{r.cliente}</span>
-                    <span className="text-[12px]" style={{ color: "var(--text-3)" }}>· {r.duracion} · {r.hora}</span>
+                    {r.notas && <p className="text-[10px] italic truncate mt-0.5" style={{ color: "var(--text-3)" }}>{r.notas}</p>}
                   </div>
-                  <div className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--text-3)" }}>
-                    <span>{fecha}</span>
-                    <span>·</span>
-                    <span>{r.tipo === "moto" ? "Moto" : "Barco"}</span>
-                    <span>·</span>
-                    <span className="font-mono text-[10px] px-1 py-0.5 rounded" style={{ background: "var(--muted)" }}>{r.fuente}</span>
-                    {r.notas && <><span>·</span><span className="italic">{r.notas}</span></>}
-                  </div>
-                </div>
 
-                {/* Dropdown estado */}
-                <div className="relative flex-shrink-0">
-                  <button
-                    onClick={() => setMenuAbierto(menuAbierto === r.id ? null : r.id)}
-                    className="flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full"
-                    style={{ color: est.color, background: est.bg }}>
-                    {est.label} ▾
+                  {/* Cliente */}
+                  <span className="text-[13px] font-medium truncate" style={{ color: "var(--foreground)" }}>
+                    {r.cliente}
+                  </span>
+
+                  {/* Fecha */}
+                  <span className="text-[12px]" style={{ color: "var(--text-3)" }}>{fecha}</span>
+
+                  {/* Duración + hora */}
+                  <div>
+                    <p className="text-[12px] font-medium" style={{ color: "var(--foreground)" }}>{r.duracion}</p>
+                    <p className="text-[11px]" style={{ color: "var(--text-3)" }}>{r.hora}</p>
+                  </div>
+
+                  {/* Canal */}
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded truncate inline-block" style={{ background: "var(--muted)", color: "var(--text-2)" }}>
+                    {r.fuente}
+                  </span>
+
+                  {/* Estado dropdown */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setMenuAbierto(menuAbierto === r.id ? null : r.id)}
+                      className="flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full w-full justify-between"
+                      style={{ color: est.color, background: est.bg }}>
+                      <span>{est.label}</span>
+                      <span>▾</span>
+                    </button>
+                    {menuAbierto === r.id && (
+                      <div className="absolute right-0 top-[calc(100%+4px)] rounded-lg border overflow-hidden z-20 min-w-[130px]"
+                        style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}>
+                        {ESTADOS.map(e => (
+                          <button key={e} onClick={async () => {
+                            setMenuAbierto(null);
+                            if (e === "cancelada") {
+                              setConfirmar({ id: r.id, cliente: r.cliente, accion: "cancelar" });
+                              return;
+                            }
+                            try {
+                              await cambiarEstadoReserva(r.id, e);
+                              cargar();
+                            } catch {
+                              setErrorCarga("Error al cambiar el estado. Inténtalo de nuevo.");
+                            }
+                          }}
+                            className="w-full text-left px-3 py-2 text-[12px] flex items-center gap-2 hover:bg-[var(--muted)]"
+                            style={{ color: "var(--foreground)" }}>
+                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: ESTADO_STYLE[e]?.color }} />
+                            {ESTADO_STYLE[e]?.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Eliminar */}
+                  <button onClick={() => setConfirmar({ id: r.id, cliente: r.cliente })}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-[13px] hover:bg-[var(--red-bg)] transition-colors"
+                    style={{ color: "var(--text-3)" }}
+                    onMouseEnter={e => (e.currentTarget.style.color = "var(--red-text)")}
+                    onMouseLeave={e => (e.currentTarget.style.color = "var(--text-3)")}>
+                    ×
                   </button>
-                  {menuAbierto === r.id && (
-                    <div className="absolute right-0 top-[calc(100%+4px)] rounded-lg border overflow-hidden z-20 min-w-[130px]"
-                      style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}>
-                      {ESTADOS.map(e => (
-                        <button key={e} onClick={async () => {
-                          setMenuAbierto(null);
-                          await cambiarEstadoReserva(r.id, e);
-                          cargar();
-                        }}
-                          className="w-full text-left px-3 py-2 text-[12px] flex items-center gap-2 hover:bg-[var(--muted)]"
-                          style={{ color: "var(--foreground)" }}>
-                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: ESTADO_STYLE[e]?.color }} />
-                          {ESTADO_STYLE[e]?.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
-
-                {/* Eliminar */}
-                <button onClick={() => setConfirmar({ id: r.id, cliente: r.cliente })}
-                  className="text-[18px] leading-none px-2 py-1 rounded flex-shrink-0 hover:bg-[var(--red-bg)]"
-                  style={{ color: "var(--text-3)" }}
-                  onMouseEnter={e => (e.currentTarget.style.color = "var(--red-text)")}
-                  onMouseLeave={e => (e.currentTarget.style.color = "var(--text-3)")}>
-                  ×
-                </button>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -226,13 +274,21 @@ export default function ReservasPage() {
 
       <ConfirmModal
         open={confirmar !== null}
-        titulo="Eliminar reserva"
-        mensaje={`¿Eliminar la reserva de ${confirmar?.cliente}? Esta acción no se puede deshacer.`}
-        labelConfirmar="Eliminar"
+        titulo={confirmar?.accion === "cancelar" ? "Cancelar reserva" : "Eliminar reserva"}
+        mensaje={
+          confirmar?.accion === "cancelar"
+            ? `¿Cancelar la reserva de ${confirmar?.cliente}? El estado cambiará a "Cancelada".`
+            : `¿Eliminar la reserva de ${confirmar?.cliente}? Esta acción no se puede deshacer.`
+        }
+        labelConfirmar={confirmar?.accion === "cancelar" ? "Cancelar reserva" : "Eliminar"}
         onCancelar={() => setConfirmar(null)}
         onConfirmar={async () => {
           if (!confirmar) return;
-          await eliminarReserva(confirmar.id);
+          if (confirmar.accion === "cancelar") {
+            await cambiarEstadoReserva(confirmar.id, "cancelada");
+          } else {
+            await eliminarReserva(confirmar.id);
+          }
           setConfirmar(null);
           cargar();
         }}
@@ -245,14 +301,13 @@ export default function ReservasPage() {
         onGuardar={async (booking) => {
           await crearReserva({
             activo_id: booking.activo_id,
-            sociedad_id: booking.sociedad_id,
+            activo_nombre: booking.activo_nombre,
             tipo: booking.tipo,
             cliente: booking.cliente,
             fecha: booking.fecha,
             hora: booking.hora,
             duracion: booking.duracion,
             horas_consumidas: booking.horas_consumidas,
-            ingreso_neto: booking.ingreso_neto,
             fuente: booking.fuente,
             notas: booking.notas,
           });

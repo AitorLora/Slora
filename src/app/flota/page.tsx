@@ -26,13 +26,15 @@ export default function FlotaPage() {
   const [loading, setLoading]     = useState(true);
   const [modalOpen, setModalOpen]       = useState(false);
   const [confirmar, setConfirmar]       = useState<{ id: string; matricula: string; error?: string } | null>(null);
+  const [errorCarga, setErrorCarga]     = useState("");
   const [tipoFiltro, setTipoFiltro]     = useState<AssetType | "">("");
   const [estadoFiltro, setEstadoFiltro] = useState<AssetStatus | "">("");
   async function cargar() {
+    setErrorCarga("");
     try {
       const supabase = createClient();
       const [{ data: a, error: e1 }, { data: s, error: e2 }] = await Promise.all([
-        supabase.from("activos").select("*").order("sociedad_id"),
+        supabase.from("activos").select("*").order("sociedad_id").limit(200),
         supabase.from("sociedades").select("id, nombre"),
       ]);
       if (e1) throw e1;
@@ -40,7 +42,7 @@ export default function FlotaPage() {
       setActivos(a ?? []);
       setSociedades(s ?? []);
     } catch {
-      // la UI mostrará lista vacía; el usuario puede recargar la página
+      setErrorCarga("Error al cargar los datos. Recarga la página.");
     } finally {
       setLoading(false);
     }
@@ -81,6 +83,13 @@ export default function FlotaPage() {
 
   return (
     <AppShell title="Flota" subtitle={`${filtrados.length} activos`} actions={actions}>
+
+      {errorCarga && (
+        <div className="px-4 py-3 rounded-xl mb-4 border text-[13px]"
+          style={{ background: "var(--red-bg)", borderColor: "var(--red-text)", color: "var(--red-text)" }}>
+          {errorCarga}
+        </div>
+      )}
 
       {/* Filtros */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
@@ -172,7 +181,7 @@ export default function FlotaPage() {
                             {badge.label}
                           </span>
                           {necesitaRevision ? (
-                            <button onClick={async () => { await marcarRevision(a.id); cargar(); }}
+                            <button onClick={async () => { try { await marcarRevision(a.id); cargar(); } catch { setErrorCarga("Error al marcar la revisión. Inténtalo de nuevo."); } }}
                               title="Marcar revisión realizada"
                               className="w-7 h-7 rounded-lg flex items-center justify-center text-[14px] hover:scale-110 transition-transform"
                               style={{ background: "var(--green-bg)", color: "var(--green-text)" }}>

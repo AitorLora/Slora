@@ -26,7 +26,9 @@ function exportarCSV(mes: string, mesLabel: string, sociedadesFiltradas: any[], 
     rows.push([]);
   }
 
-  const csv  = rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
+  // CRÍTICO 3: sanitizar CSV injection (fórmulas =, +, -, @, tab, CR)
+  const sanitize = (c: string) => `"${String(c).replace(/^([=+\-@\t\r])/, "'$1").replace(/"/g, '""')}"`;
+  const csv  = rows.map(r => r.map(sanitize).join(",")).join("\n");
   const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
@@ -39,16 +41,20 @@ export default function ReportesPage() {
   const [activos, setActivos]     = useState<any[]>([]);
   const [sociedades, setSociedades] = useState<any[]>([]);
   const [mes, setMes]             = useState("");
+  const [errorCarga, setErrorCarga] = useState("");
   const [sociedadFiltro, setSociedadFiltro] = useState("");
 
   useEffect(() => {
     const supabase = createClient();
     Promise.all([
-      supabase.from("reservas").select("*"),
+      supabase.from("reservas").select("*").gte("fecha", `${new Date().getFullYear()}-01-01`),
       supabase.from("activos").select("id, nombre, matricula, tipo, sociedad_id, horas_motor"),
       supabase.from("sociedades").select("id, nombre"),
     ]).then(([{ data: r, error: e1 }, { data: a, error: e2 }, { data: s, error: e3 }]) => {
-      if (e1 || e2 || e3) return;
+      if (e1 || e2 || e3) {
+        setErrorCarga("Error al cargar los datos. Recarga la página.");
+        return;
+      }
       setReservas(r ?? []);
       setActivos(a ?? []);
       setSociedades(s ?? []);
@@ -105,6 +111,12 @@ export default function ReportesPage() {
 
   return (
     <AppShell title="Reportes" subtitle={`Reporte mensual · ${MESES_LABELS[mes] ?? mes}`} actions={filters}>
+      {errorCarga && (
+        <div className="px-4 py-3 rounded-xl mb-4 border text-[13px]"
+          style={{ background: "var(--red-bg)", borderColor: "var(--red-text)", color: "var(--red-text)" }}>
+          {errorCarga}
+        </div>
+      )}
       <div className="hidden print:block mb-6 pb-4 border-b" style={{ borderColor: "var(--border)" }}>
         <div className="flex items-center justify-between">
           <div>

@@ -1,7 +1,7 @@
 export type AssetStatus = "ACTIVO" | "ALERTA" | "MANTENIMIENTO";
 export type AssetType = "moto" | "barco";
 export type BookingStatus = "pendiente" | "confirmada" | "en_curso" | "completada" | "cancelada";
-export type BarcoCategoria = "quicksilver" | "sin_licencia_6" | "sin_licencia_7";
+export type BarcoCategoria = "con_licencia" | "sin_licencia_6" | "sin_licencia_7";
 
 export interface Sociedad {
   id: string;
@@ -74,9 +74,9 @@ export interface TarifaBarco {
 }
 
 export const TARIFAS_BARCO: Record<BarcoCategoria, TarifaBarco> = {
-  quicksilver:    { label: "Quicksilver",           capacidad: 7, licencia: true,  medio_dia: 300, dia_completo: 500, descripcion: "Con licencia · 7 personas" },
-  sin_licencia_6: { label: "Barco sin licencia 6p", capacidad: 6, licencia: false, medio_dia: 250, dia_completo: 400, descripcion: "Sin licencia · 6 personas" },
-  sin_licencia_7: { label: "Barco sin licencia 7p", capacidad: 7, licencia: false, medio_dia: 300, dia_completo: 450, descripcion: "Sin licencia · 7 personas" },
+  con_licencia:   { label: "Con licencia",      capacidad: 7, licencia: true,  medio_dia: 300, dia_completo: 500, descripcion: "Con licencia · 7 personas" },
+  sin_licencia_6: { label: "Sin licencia · 6p", capacidad: 6, licencia: false, medio_dia: 250, dia_completo: 400, descripcion: "Sin licencia · 6 personas" },
+  sin_licencia_7: { label: "Sin licencia · 7p", capacidad: 7, licencia: false, medio_dia: 300, dia_completo: 450, descripcion: "Sin licencia · 7 personas" },
 };
 
 export const DURACIONES_BARCO = ["Medio día", "Día completo"];
@@ -100,7 +100,7 @@ export const assets: Asset[] = [
   { id: "GTX-04", nombre: "Yamaha VX 1",   matricula: "MA-2201-B", tipo: "moto", modelo: "Yamaha VX Cruiser", sociedad_id: "s2", sociedad_nombre: "Sociedad B", horas_motor: 175, horas_desde_servicio: 15, estado: "ACTIVO" },
   { id: "GTX-05", nombre: "Yamaha VX 2",   matricula: "MA-2202-B", tipo: "moto", modelo: "Yamaha VX Cruiser", sociedad_id: "s2", sociedad_nombre: "Sociedad B", horas_motor: 88,  horas_desde_servicio: 44, estado: "ACTIVO" },
   // Barcos
-  { id: "BAR-01", nombre: "Quicksilver",      matricula: "MA-3310-A", tipo: "barco", modelo: "Quicksilver",  capacidad: 7, licencia: true,  categoria: "quicksilver",    sociedad_id: "s1", sociedad_nombre: "Sociedad A", horas_motor: 320, horas_desde_servicio: 18, estado: "ACTIVO" },
+  { id: "BAR-01", nombre: "Barco con licencia", matricula: "MA-3310-A", tipo: "barco", modelo: "Barco con licencia", capacidad: 7, licencia: true,  categoria: "con_licencia",   sociedad_id: "s1", sociedad_nombre: "Sociedad A", horas_motor: 320, horas_desde_servicio: 18, estado: "ACTIVO" },
   { id: "BAR-02", nombre: "Barco 1",          matricula: "MA-4410-B", tipo: "barco", modelo: "Barco 1",      capacidad: 6, licencia: false, categoria: "sin_licencia_6", sociedad_id: "s2", sociedad_nombre: "Sociedad B", horas_motor: 445, horas_desde_servicio: 78, estado: "ALERTA" },
   { id: "BAR-03", nombre: "Barco 2",          matricula: "MA-4411-B", tipo: "barco", modelo: "Barco 2",      capacidad: 6, licencia: false, categoria: "sin_licencia_6", sociedad_id: "s2", sociedad_nombre: "Sociedad B", horas_motor: 280, horas_desde_servicio: 22, estado: "ACTIVO" },
   { id: "BAR-04", nombre: "Barco 3",          matricula: "MA-4412-C", tipo: "barco", modelo: "Barco 3",      capacidad: 7, licencia: false, categoria: "sin_licencia_7", sociedad_id: "s3", sociedad_nombre: "Sociedad C", horas_motor: 512, horas_desde_servicio: 31, estado: "ACTIVO" },

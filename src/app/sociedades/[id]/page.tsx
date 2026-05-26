@@ -28,18 +28,15 @@ export default function PanelInversorPage({ params }: { params: Promise<{ id: st
   const [reservas, setReservas] = useState<any[]>([]);
   const [busqueda, setBusqueda] = useState("");
   const [notFound404, setNotFound404] = useState(false);
+  const [errorCarga, setErrorCarga] = useState("");
 
   async function cargar() {
     try {
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setNotFound404(true); return; }
-      const { data: profile } = await supabase.from("perfiles").select("sociedad_id, rol").eq("id", user.id).single();
-      if (profile?.rol !== "master" && profile?.sociedad_id !== id) { setNotFound404(true); return; }
       const [{ data: soc, error: e1 }, { data: acts, error: e2 }, { data: revs, error: e3 }] = await Promise.all([
         supabase.from("sociedades").select("id, nombre").eq("id", id).single(),
         supabase.from("activos").select("*").eq("sociedad_id", id),
-        supabase.from("reservas").select("*").eq("sociedad_id", id).order("created_at", { ascending: false }),
+        supabase.from("reservas").select("*").eq("sociedad_id", id).gte("fecha", `${new Date().getFullYear() - 1}-01-01`).order("created_at", { ascending: false }),
       ]);
       if (e1 || e2 || e3) throw e1 ?? e2 ?? e3;
       if (!soc) { setNotFound404(true); return; }
@@ -47,7 +44,7 @@ export default function PanelInversorPage({ params }: { params: Promise<{ id: st
       setActivos(acts ?? []);
       setReservas(revs ?? []);
     } catch {
-      // error de red o permisos — la UI mostrará estado vacío
+      setErrorCarga("Error al cargar los datos. Recarga la página.");
     }
   }
 
@@ -77,11 +74,17 @@ export default function PanelInversorPage({ params }: { params: Promise<{ id: st
 
   const reservasFiltradas = reservas.filter(r => {
     const q = busqueda.toLowerCase();
-    return !q || r.cliente?.toLowerCase().includes(q) || r.activo_id?.toLowerCase().includes(q);
+    return !q || r.cliente?.toLowerCase().includes(q) || r.activo_nombre?.toLowerCase().includes(q) || r.activo_id?.toLowerCase().includes(q);
   });
 
   return (
     <InvestorShell sociedad={sociedad.nombre}>
+      {errorCarga && (
+        <div className="px-4 py-3 rounded-xl mb-4 border text-[13px]"
+          style={{ background: "var(--red-bg)", borderColor: "var(--red-text)", color: "var(--red-text)" }}>
+          {errorCarga}
+        </div>
+      )}
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         {[
@@ -161,19 +164,19 @@ export default function PanelInversorPage({ params }: { params: Promise<{ id: st
               const badge = ESTADO_RESERVA[r.estado] ?? ESTADO_RESERVA.pendiente;
               const fecha = r.fecha ? new Date(r.fecha + "T12:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" }) : "—";
               return (
-                <div key={r.id} className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--muted)] transition-colors"
-                  style={{ borderBottom: i < reservasFiltradas.length - 1 ? "1px solid var(--border)" : "none", background: "var(--surface)" }}>
-                  <span className="font-mono text-[11px] text-white px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: "var(--navy)" }}>
-                    {r.activo_id}
-                  </span>
-                  <div className="flex-1 min-w-0">
+                <div key={r.id} className="grid items-center px-4 py-3 border-b last:border-0 hover:bg-[var(--muted)] transition-colors"
+                  style={{ gridTemplateColumns: "1fr 160px 68px 90px", borderColor: "var(--border)", background: "var(--surface)" }}>
+                  <div className="min-w-0 pr-3">
                     <p className="text-[13px] font-medium truncate" style={{ color: "var(--foreground)" }}>{r.cliente}</p>
                     <p className="text-[11px]" style={{ color: "var(--text-3)" }}>{fecha} · {r.duracion} · {r.fuente}</p>
                   </div>
-                  <span className="font-mono text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
+                  <span className="font-mono text-[11px] text-white px-1.5 py-0.5 rounded w-fit truncate" style={{ background: "var(--navy)" }}>
+                    {r.activo_nombre ?? r.activo_id}
+                  </span>
+                  <span className="font-mono text-[13px] font-semibold text-right" style={{ color: "var(--foreground)" }}>
                     €{Number(r.ingreso_neto).toLocaleString("es-ES")}
                   </span>
-                  <span className="text-[11px] font-medium px-2 py-0.5 rounded-full flex-shrink-0" style={{ color: badge.color, background: badge.bg }}>
+                  <span className="text-[11px] font-medium px-2 py-0.5 rounded-full text-center justify-self-end" style={{ color: badge.color, background: badge.bg }}>
                     {badge.label}
                   </span>
                 </div>

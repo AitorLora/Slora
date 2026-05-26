@@ -5,14 +5,17 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import {
+  LayoutDashboard, CalendarCheck, Anchor, Calculator, Building2, BarChart3, LogOut, PanelLeftClose, PanelLeftOpen,
+} from "lucide-react";
 
 const navItems = [
-  { label: "Dashboard",   href: "/dashboard",   icon: "▣" },
-  { label: "Reservas",    href: "/reservas",    icon: "📋" },
-  { label: "Flota",       href: "/flota",       icon: "⛵" },
-  { label: "Presupuesto", href: "/presupuesto", icon: "💶" },
-  { label: "Sociedades",  href: "/sociedades",  icon: "🏢" },
-  { label: "Reportes",    href: "/reportes",    icon: "📊" },
+  { label: "Dashboard",   href: "/dashboard",   Icon: LayoutDashboard },
+  { label: "Reservas",    href: "/reservas",    Icon: CalendarCheck },
+  { label: "Flota",       href: "/flota",       Icon: Anchor },
+  { label: "Presupuesto", href: "/presupuesto", Icon: Calculator },
+  { label: "Sociedades",  href: "/sociedades",  Icon: Building2 },
+  { label: "Reportes",    href: "/reportes",    Icon: BarChart3 },
 ];
 
 interface AppShellProps {
@@ -70,35 +73,25 @@ export function AppShell({ children, title, subtitle, actions }: AppShellProps) 
 
         {/* Nav */}
         <div className={cn("pt-4 flex-1", collapsed && !mobile ? "px-2" : "px-3")}>
-          {(!collapsed || mobile) && (
-            <p
-              className="px-3 mb-2 text-[10px] font-medium uppercase tracking-[0.1em]"
-              style={{ color: "#4A7FA5" }}
-            >
-              Navegación
-            </p>
-          )}
           <nav className="space-y-0.5">
-            {navItems.map((item) => {
-              const isActive = pathname === item.href;
+            {navItems.map(({ label, href, Icon }) => {
+              const isActive = pathname === href;
               return (
                 <Link
-                  key={item.href}
-                  href={item.href}
-                  title={collapsed && !mobile ? item.label : undefined}
+                  key={href}
+                  href={href}
+                  title={collapsed && !mobile ? label : undefined}
                   className={cn(
-                    "flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] transition-all w-full",
+                    "flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] transition-all w-full",
                     collapsed && !mobile && "justify-center px-2",
                     isActive
                       ? "text-white font-medium"
-                      : "text-[#8BB4D4] hover:text-[#C5DCF0] hover:bg-white/5"
+                      : "text-[#6A9DBF] hover:text-[#C5DCF0] hover:bg-white/5"
                   )}
-                  style={isActive ? { background: "rgba(26,110,191,0.25)" } : {}}
+                  style={isActive ? { background: "rgba(255,255,255,0.1)" } : {}}
                 >
-                  <span className="text-base w-[18px] text-center flex-shrink-0">
-                    {item.icon}
-                  </span>
-                  {(!collapsed || mobile) && item.label}
+                  <Icon size={15} className="flex-shrink-0" strokeWidth={isActive ? 2.2 : 1.8} />
+                  {(!collapsed || mobile) && <span className="tracking-[-0.01em]">{label}</span>}
                 </Link>
               );
             })}
@@ -113,56 +106,49 @@ export function AppShell({ children, title, subtitle, actions }: AppShellProps) 
           )}
           style={{ borderColor: "rgba(255,255,255,0.08)" }}
         >
-          {(!collapsed || mobile) && (
-            <div
-              className="text-center text-[11px] py-1.5 px-2 rounded-full"
-              style={{ background: "rgba(26,110,191,0.2)", color: "#7BAFD4" }}
-            >
-              10 unidades activas
-            </div>
-          )}
-
-          {/* Cerrar sesión */}
-          <button
-            onClick={handleLogout}
-            title="Cerrar sesión"
-            className={cn(
-              "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[12.5px] font-medium transition-all border",
-              collapsed && !mobile ? "justify-center px-2" : "justify-center"
-            )}
-            style={{
-              color: "#C5DCF0",
-              borderColor: "rgba(255,255,255,0.12)",
-              background: "rgba(255,255,255,0.05)",
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.background = "rgba(220,50,50,0.15)";
-              (e.currentTarget as HTMLElement).style.borderColor = "rgba(220,80,80,0.4)";
-              (e.currentTarget as HTMLElement).style.color = "#FCA5A5";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
-              (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)";
-              (e.currentTarget as HTMLElement).style.color = "#C5DCF0";
-            }}
-          >
-            <span>↪</span>
-            {(!collapsed || mobile) && "Cerrar sesión"}
-          </button>
-
-          {/* Colapsar — solo desktop */}
-          {!mobile && (
+          <div className={cn("flex items-center", collapsed && !mobile ? "justify-center" : "gap-1")}>
+            {/* Cerrar sesión */}
             <button
-              onClick={() => setCollapsed(!collapsed)}
-              title={collapsed ? "Expandir menú" : "Colapsar menú"}
-              className="w-full flex items-center justify-center py-1.5 rounded-lg text-[11px] transition-all"
-              style={{ color: "#4A7FA5" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#7BAFD4"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#4A7FA5"; }}
+              onClick={handleLogout}
+              title="Cerrar sesión"
+              className={cn(
+                "flex items-center gap-2 px-3 py-2 rounded-lg text-[12.5px] transition-all",
+                collapsed && !mobile ? "" : "flex-1"
+              )}
+              style={{ color: "#6A9DBF" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#FCA5A5"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#6A9DBF"; }}
             >
-              {collapsed ? "→" : "← Ocultar"}
+              <LogOut size={14} strokeWidth={1.8} className="flex-shrink-0" />
+              {(!collapsed || mobile) && <span className="tracking-[-0.01em]">Cerrar sesión</span>}
             </button>
-          )}
+
+            {/* Colapsar — solo desktop, inline con logout */}
+            {!mobile && !collapsed && (
+              <button
+                onClick={() => setCollapsed(!collapsed)}
+                title="Colapsar menú"
+                className="flex items-center justify-center p-2 rounded-lg transition-all flex-shrink-0"
+                style={{ color: "#4A7FA5" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#7BAFD4"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#4A7FA5"; }}
+              >
+                <PanelLeftClose size={14} strokeWidth={1.8} />
+              </button>
+            )}
+            {!mobile && collapsed && (
+              <button
+                onClick={() => setCollapsed(!collapsed)}
+                title="Expandir menú"
+                className="flex items-center justify-center p-2 rounded-lg transition-all"
+                style={{ color: "#4A7FA5" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#7BAFD4"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#4A7FA5"; }}
+              >
+                <PanelLeftOpen size={14} strokeWidth={1.8} />
+              </button>
+            )}
+          </div>
         </div>
       </>
     );
@@ -205,8 +191,8 @@ export function AppShell({ children, title, subtitle, actions }: AppShellProps) 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Topbar */}
         <header
-          className="flex items-center justify-between px-4 lg:px-6 py-4 border-b sticky top-0 z-10 print:hidden"
-          style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+          className="flex items-center justify-between px-4 lg:px-6 py-3.5 border-b sticky top-0 z-10 print:hidden"
+          style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "0 1px 0 var(--border)" }}
         >
           <div className="flex items-center gap-3 min-w-0">
             {/* Hamburguesa — solo móvil */}
