@@ -36,6 +36,11 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
+  // Webhooks se autentican con x-webhook-secret, no con sesión de usuario
+  if (pathname.startsWith("/api/webhooks/")) {
+    return supabaseResponse;
+  }
+
   if (!user) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
