@@ -64,7 +64,7 @@ export function NuevaReservaModal({ open, onClose, onGuardar, initialValues }: P
   const [cantidad, setCantidad] = useState(1);
   const [categoria, setCategoria] = useState<BarcoCategoria | null>(null);
   const [duracion, setDuracion] = useState("");
-  const [fuente, setFuente]   = useState("Directo");
+  const [fuente, setFuente]   = useState("Manual");
   const [cliente, setCliente] = useState("");
   const [hora, setHora]       = useState(ahora());
   const [fecha, setFecha]     = useState(hoy());
@@ -80,7 +80,7 @@ export function NuevaReservaModal({ open, onClose, onGuardar, initialValues }: P
     setCantidad(iv.cantidad ?? 1);
     setCategoria(iv.categoria ?? null);
     setDuracion(iv.duracion ?? "");
-    setFuente(iv.fuente ?? "Directo");
+    setFuente(iv.fuente ?? "Manual");
     setCliente("");
     setHora(iv.hora ?? ahora());
     setFecha(iv.fecha ?? hoy());
@@ -154,10 +154,22 @@ export function NuevaReservaModal({ open, onClose, onGuardar, initialValues }: P
   const fianza = 300 * (tipo === "moto" ? cantidad : 1);
   const duraciones = tipo === "barco" ? DURACIONES_BARCO : DURACIONES_MOTO;
 
+  const errorHorario = (() => {
+    if (!tipo || !hora || !duracion) return "";
+    const [hh, mm] = hora.split(":").map(Number);
+    const minInicio = hh * 60 + mm;
+    if (minInicio < 9 * 60)
+      return `Las salidas empiezan a las 09:00.`;
+    const minFin = minInicio + (HORAS_CONSUMIDAS[duracion] ?? 4) * 60;
+    if (minFin > 21 * 60)
+      return `Esta reserva terminaría después de las 21:00. Elige una hora anterior.`;
+    return "";
+  })();
+
   const puedeAvanzar = (() => {
     if (paso === 1) return tipo !== null;
     if (paso === 2) return tipo === "moto" ? cantidad >= 1 : categoria !== null;
-    if (paso === 3) return duracion !== "" && fecha !== "" && suficientesActivos;
+    if (paso === 3) return duracion !== "" && fecha !== "" && suficientesActivos && errorHorario === "";
     if (paso === 4) return cliente.trim().length > 0;
     return true;
   })();
@@ -295,9 +307,19 @@ export function NuevaReservaModal({ open, onClose, onGuardar, initialValues }: P
                 })}
               </div>
               {categoria && activoAsignado && (
-                <div className="mt-3 px-3 py-2 rounded-lg text-[12px]" style={{ background: "var(--muted)", color: "var(--text-2)" }}>
-                  <span className="font-medium" style={{ color: "var(--navy)" }}>Asignado por rotación:</span>{" "}
-                  {activoAsignado.nombre} · {activoAsignado.matricula} · {activoAsignado.horas_motor}h motor
+                <div className="mt-3 space-y-2">
+                  <div className="px-3 py-2 rounded-lg text-[12px]" style={{ background: "var(--muted)", color: "var(--text-2)" }}>
+                    <span className="font-medium" style={{ color: "var(--navy)" }}>Asignado por rotación:</span>{" "}
+                    {activoAsignado.nombre} · {activoAsignado.matricula} · {activoAsignado.horas_motor}h motor
+                  </div>
+                  {activoAsignado.horas_desde_servicio >= 100 && (
+                    <div className="px-3 py-2.5 rounded-lg flex items-center gap-2 text-[12px]" style={{ background: "var(--amber-bg)", color: "var(--amber-text)" }}>
+                      <span className="text-[14px] flex-shrink-0">🔧</span>
+                      <span>Este activo tiene que pasar por mantenimiento
+                        <span className="ml-1 opacity-75">({activoAsignado.horas_desde_servicio}h / 100h)</span>
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -325,6 +347,9 @@ export function NuevaReservaModal({ open, onClose, onGuardar, initialValues }: P
               <div className="mt-3">
                 <label className="block text-[11px] mb-1.5" style={{ color: "var(--text-3)" }}>Hora de salida</label>
                 <TimeInput value={hora} onChange={setHora} />
+                {errorHorario && (
+                  <p className="mt-1.5 text-[12px]" style={{ color: "var(--red-text)" }}>⚠ {errorHorario}</p>
+                )}
               </div>
               <div className="mt-3">
                 <label className="block text-[11px] mb-1.5" style={{ color: "var(--text-3)" }}>Origen</label>
@@ -335,11 +360,36 @@ export function NuevaReservaModal({ open, onClose, onGuardar, initialValues }: P
                 </select>
               </div>
               {suficientesActivos ? (
-                <div className="mt-3 px-3 py-2 rounded-lg text-[12px]" style={{ background: "var(--muted)", color: "var(--text-2)" }}>
-                  <span className="font-medium" style={{ color: "var(--navy)" }}>
-                    {activosAsignados.length > 1 ? "Activos asignados:" : "Activo asignado:"}
-                  </span>{" "}
-                  {activosAsignados.map(a => `${a.nombre} (${a.matricula})`).join(" · ")}
+                <div className="mt-3 space-y-2">
+                  <div className="px-3 py-2.5 rounded-lg" style={{ background: "var(--muted)" }}>
+                    <p className="text-[10px] uppercase tracking-[0.06em] font-medium mb-1.5" style={{ color: "var(--text-3)" }}>
+                      {activosAsignados.length > 1 ? "Activos asignados" : "Activo asignado"}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {activosAsignados.map(a => (
+                        <span key={a.id} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium"
+                          style={{ background: "var(--navy)", color: "white" }}>
+                          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: "#4ade80" }} />
+                          <span className="font-mono">{a.matricula}</span>
+                          <span style={{ color: "rgba(255,255,255,0.6)" }}>·</span>
+                          <span>{a.nombre}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  {activosAsignados.some(a => a.horas_desde_servicio >= 100) && (
+                    <div className="px-3 py-2.5 rounded-lg flex items-start gap-2" style={{ background: "var(--amber-bg)" }}>
+                      <span className="text-[14px] flex-shrink-0 mt-0.5">🔧</span>
+                      <div className="space-y-0.5">
+                        {activosAsignados.filter(a => a.horas_desde_servicio >= 100).map(a => (
+                          <p key={a.id} className="text-[12px]" style={{ color: "var(--amber-text)" }}>
+                            <span className="font-mono font-semibold">{a.matricula}</span> — Este activo tiene que pasar por mantenimiento
+                            <span className="ml-1 text-[11px] opacity-75">({a.horas_desde_servicio}h / 100h)</span>
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : tipo ? (
                 <div className="mt-3 px-3 py-2 rounded-lg text-[12px]" style={{ background: "var(--red-bg)", color: "var(--red-text)" }}>
@@ -367,9 +417,24 @@ export function NuevaReservaModal({ open, onClose, onGuardar, initialValues }: P
             <div>
               <p className="text-[11px] uppercase tracking-[0.08em] font-medium mb-3" style={{ color: "var(--text-3)" }}>Resumen de la reserva</p>
               <div className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--border)" }}>
+
+                {/* Fila Activo — chips */}
+                <div className="flex items-start justify-between gap-3 px-4 py-2.5 text-[12px]" style={{ borderBottom: "1px solid var(--border)" }}>
+                  <span className="flex-shrink-0 pt-0.5" style={{ color: "var(--text-3)" }}>Activo</span>
+                  <div className="flex flex-wrap gap-1 justify-end">
+                    {activosAsignados.map(a => (
+                      <span key={a.id} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium"
+                        style={{ background: "var(--navy)", color: "white" }}>
+                        <span className="font-mono tracking-wide">{a.matricula}</span>
+                        <span style={{ color: "rgba(255,255,255,0.4)" }}>·</span>
+                        <span style={{ color: "rgba(255,255,255,0.8)" }}>{a.nombre}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
                 {[
                   ["Cliente",   cliente],
-                  ["Activo",    activosAsignados.map(a => `${a.nombre} (${a.matricula})`).join(", ")],
                   ["Tipo",      tipo === "moto" ? `${cantidad} moto${cantidad > 1 ? "s" : ""} de agua` : `${categoria ? TARIFAS_BARCO[categoria].label : ""}`],
                   ["Fecha",     new Date(fecha + "T12:00:00").toLocaleDateString("es-ES", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })],
                   ["Duración",  `${duracion} · Salida ${hora}`],
@@ -379,7 +444,7 @@ export function NuevaReservaModal({ open, onClose, onGuardar, initialValues }: P
                   <div key={k} className="flex justify-between items-center px-4 py-2.5 text-[12px]"
                     style={{ borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
                     <span style={{ color: "var(--text-3)" }}>{k}</span>
-                    <span className="font-medium" style={{ color: "var(--foreground)" }}>{v}</span>
+                    <span className="font-medium text-right" style={{ color: "var(--foreground)" }}>{v}</span>
                   </div>
                 ))}
               </div>

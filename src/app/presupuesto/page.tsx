@@ -164,7 +164,7 @@ export default function PresupuestoPage() {
           </div>
 
           {/* Fecha y hora */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] mb-1.5" style={{ color: "var(--text-3)" }}>Fecha</label>
               <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}

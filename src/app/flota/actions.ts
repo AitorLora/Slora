@@ -16,13 +16,14 @@ export async function crearActivo(data: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("No autorizado");
 
-  const { data: perfil } = await supabase
-    .from("perfiles").select("sociedad_id, rol").eq("id", user.id).single();
+  const { data: perfil, error: perfilError } = await supabase
+    .from("perfiles").select("sociedad_id, rol").eq("id", user.id).maybeSingle();
+  if (perfilError || !perfil) throw new Error("Perfil no encontrado");
 
   // Master puede asignar a cualquier sociedad; el resto solo a la suya
-  const sociedad_id = perfil?.rol === "master" && data.sociedad_id
+  const sociedad_id = perfil.rol === "master" && data.sociedad_id
     ? data.sociedad_id
-    : perfil?.sociedad_id;
+    : perfil.sociedad_id;
   if (!sociedad_id) throw new Error("Perfil sin sociedad asignada");
 
   const { error } = await supabase.from("activos").insert({
@@ -46,13 +47,15 @@ export async function eliminarActivo(id: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("No autorizado");
 
-  const { data: perfil } = await supabase
-    .from("perfiles").select("sociedad_id, rol").eq("id", user.id).single();
-  const { data: activo } = await supabase
-    .from("activos").select("sociedad_id").eq("id", id).single();
+  const { data: perfil, error: perfilError } = await supabase
+    .from("perfiles").select("sociedad_id, rol").eq("id", user.id).maybeSingle();
+  if (perfilError || !perfil) throw new Error("Perfil no encontrado");
 
-  if (!activo) throw new Error("Activo no encontrado");
-  if (perfil?.rol !== "master" && perfil?.sociedad_id !== activo.sociedad_id) {
+  const { data: activo, error: activoError } = await supabase
+    .from("activos").select("sociedad_id").eq("id", id).maybeSingle();
+  if (activoError || !activo) throw new Error("Activo no encontrado");
+
+  if (perfil.rol !== "master" && perfil.sociedad_id !== activo.sociedad_id) {
     throw new Error("Sin permiso para este activo");
   }
 
@@ -79,13 +82,15 @@ export async function marcarRevision(id: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("No autorizado");
 
-  const { data: perfil } = await supabase
-    .from("perfiles").select("sociedad_id, rol").eq("id", user.id).single();
-  const { data: activo } = await supabase
-    .from("activos").select("sociedad_id").eq("id", id).single();
+  const { data: perfil, error: perfilError } = await supabase
+    .from("perfiles").select("sociedad_id, rol").eq("id", user.id).maybeSingle();
+  if (perfilError || !perfil) throw new Error("Perfil no encontrado");
 
-  if (!activo) throw new Error("Activo no encontrado");
-  if (perfil?.rol !== "master" && perfil?.sociedad_id !== activo.sociedad_id) {
+  const { data: activo, error: activoError } = await supabase
+    .from("activos").select("sociedad_id").eq("id", id).maybeSingle();
+  if (activoError || !activo) throw new Error("Activo no encontrado");
+
+  if (perfil.rol !== "master" && perfil.sociedad_id !== activo.sociedad_id) {
     throw new Error("Sin permiso para este activo");
   }
 

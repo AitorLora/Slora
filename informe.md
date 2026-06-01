@@ -1,166 +1,188 @@
-
-# Auditoría — Slora Nautic
-> Última revisión: 2026-05-22. Auditoría completa con skill-tester.
-
----
-
-## 🟠 PENDIENTE 1 — Query de reservas sin límite en `/reservas`
-
-**Archivo:** `src/app/reservas/page.tsx` línea 39
-
-```ts
-supabase.from("reservas").select("*").order("created_at", { ascending: false })
-```
-
-Carga toda la tabla de reservas sin ningún filtro de fecha ni límite de registros. En reportes se arregló con filtro de año y en flota con `.limit(200)`, pero esta página se quedó sin corregir. Es la página más usada del admin.
-
-**Cómo arreglarlo:** añadir filtro de año actual o límite mínimo:
-```ts
-.gte("fecha", `${new Date().getFullYear() - 1}-01-01`)
-```
+# QA Master Engine — Informe de Auditoría de Lógica de Negocio
+**Proyecto:** Slora Nautic — Sistema de gestión de reservas  
+**Fecha:** 2026-06-01  
+**Auditor:** QA Master Engine (Staff Engineer Level)  
+**Archivos analizados:** `reservas/actions.ts`, `flota/actions.ts`, `middleware.ts`, `NuevaReservaModal.tsx`, `mock-data.ts`
 
 ---
 
-## 🟠 PENDIENTE 2 — `cambiarEstadoReserva` sin manejo de error en la UI
+## Resumen Ejecutivo
 
-**Archivo:** `src/app/reservas/page.tsx` líneas 238–240
+Se han identificado **7 hallazgos** distribuidos en 3 niveles de severidad:
 
-Cuando el usuario cambia el estado de una reserva desde el dropdown (cualquier estado excepto "cancelada"), la llamada al server action no tiene `try/catch`:
-
-```ts
-await cambiarEstadoReserva(r.id, e);
-cargar();
-```
-
-Si Supabase devuelve un error (sin conexión, token expirado, permiso insuficiente), el dropdown se cierra sin ningún mensaje visible y `cargar()` nunca se ejecuta. El operario puede creer que el cambio se guardó cuando no fue así.
-
-Las acciones de cancelar y eliminar sí están protegidas con ConfirmModal que muestra el error. Esta acción no lo está.
-
-**Cómo arreglarlo:** envolver en `try/catch` y mostrar el error con el banner de error existente o un estado local.
+| Severidad | Nº | Descripción resumida |
+|-----------|-----|----------------------|
+| 🔴 Crítico | 3 | Race condition overbooking, DELETE físico, estado del activo no validado en servidor |
+| 🟡 Medio   | 3 | Hora de cierre no validada, `horas_consumidas` aceptado del cliente, ventana de cancelación ausente |
+| 🔵 Menor   | 1 | Reserva hoy con hora pasada permitida |
 
 ---
 
-## 🟠 PENDIENTE 3 — `marcarRevision` sin manejo de error en la UI
-
-**Archivo:** `src/app/flota/page.tsx` línea 184
-
-Mismo patrón que el pendiente anterior. El botón 🔧 de marcar revisión realizada llama directamente:
-
-```ts
-await marcarRevision(a.id); cargar();
-```
-
-Sin `try/catch`. Si la operación falla, el usuario ve que el botón se pulsó pero el estado del activo no cambia, sin ninguna explicación.
-
-**Cómo arreglarlo:** envolver en `try/catch` con feedback visual (banner de error o estado local).
+## 🔴 Hallazgos Críticos
 
 ---
 
-## ✅ RESUELTO — RLS activo en Supabase para las 3 tablas críticas
+### 📦 Componente: `src/app/reservas/actions.ts` → `crearReserva()` — Race Condition
 
-RLS habilitado y políticas aplicadas en `activos`, `reservas` y `sociedades`. Los datos de cada sociedad solo son accesibles por usuarios autorizados a nivel de base de datos, independientemente del frontend.
+> ⚠️ **PARCIALMENTE RESUELTO** — Código actualizado: se captura el error de constraint Postgres 23505 y se lanza un mensaje amigable. Falta acción manual en Supabase: `CREATE UNIQUE INDEX reserva_activo_fecha_activa ON reservas (activo_id, fecha) WHERE estado IN ('pendiente', 'confirmada', 'en_curso');`
 
----
+* **🔴 Agujero de Lógica / Riesgo:** Condición de carrera clásica (TOCTOU). El flujo ejecuta `SELECT solapadas` y luego `INSERT reserva` como dos operaciones independientes y no atómicas. No existe transacción, `SELECT FOR UPDATE`, constraint único filtrado ni mecanismo de cola entre ambas. Si dos peticiones llegan en el mismo milisegundo, ambas pasan el check de solapamiento y ambas insertan.
 
-## 🟡 A REVISAR 5 — Búsqueda en panel inversor usa `activo_id` en vez de `activo_nombre`
+* **🕵️ Escenario de Error (Caso de Uso Roto):** Carlos y María reservan la moto MA-123-MA para el mismo día desde dos dispositivos simultáneamente. Ambas peticiones ejecutan el SELECT, ambas obtienen 0 solapamientos, ambas pasan la validación y ambas insertan. Resultado: dos reservas activas para el mismo activo en la misma fecha. Overbooking real.
 
-**Archivo:** `src/app/sociedades/[id]/page.tsx` línea 77
-
-```ts
-return !q || r.cliente?.toLowerCase().includes(q) || r.activo_id?.toLowerCase().includes(q);
-```
-
-La UI ya muestra `activo_nombre ?? activo_id` en las reservas, pero la búsqueda sigue filtrando solo por `activo_id`. Un inversor que busca "Barco con licencia" no encontrará nada.
-
-**Cómo arreglarlo:**
-```ts
-return !q
-  || r.cliente?.toLowerCase().includes(q)
-  || r.activo_nombre?.toLowerCase().includes(q)
-  || r.activo_id?.toLowerCase().includes(q);
-```
+* **🛠️ Solución de Ingeniería:** Añadir un `UNIQUE INDEX` parcial en Postgres sobre `(activo_id, fecha)` filtrado por estados activos. El INSERT fallará a nivel de constraint si ya existe un solapamiento, eliminando la ventana de carrera:
+  ```sql
+  CREATE UNIQUE INDEX reserva_activo_fecha_activa
+    ON reservas (activo_id, fecha)
+    WHERE estado IN ('pendiente', 'confirmada', 'en_curso');
+  ```
+  En el servidor, capturar el error de constraint Postgres (código `23505`) y lanzar un mensaje amigable. Alternativa más robusta: usar una función RPC en Postgres que ejecute el check + insert dentro de una transacción.
 
 ---
 
-## 🟡 A REVISAR 6 — Modal de reserva: carga de activos sin manejo de error
+### 📦 Componente: `src/app/reservas/actions.ts` → `eliminarReserva()` — DELETE Físico
 
-**Archivo:** `src/components/reservas/NuevaReservaModal.tsx` líneas 90–101
+> ✅ **RESUELTO** — `delete()` reemplazado por `update({ estado: "eliminada" })`. La query de listado en `page.tsx` excluye `.neq("estado", "eliminada")`. Histórico financiero preservado.
 
-La carga inicial de activos y sociedades al abrir el modal usa `.then()` sin `.catch()`. Si la query falla, el modal se abre vacío (sin categorías de barco, sin disponibilidad) sin ningún mensaje de error. El usuario no sabe si es un problema real o si simplemente no hay activos.
+* **🔴 Agujero de Lógica / Riesgo:** Se ejecuta `supabase.from("reservas").delete().eq("id", id)` — un DELETE físico. Esto destruye permanentemente el histórico financiero. Cada reserva es un registro contable. Su eliminación hace imposible auditar ingresos pasados, reconstruir el libro de caja, o justificar discrepancias ante la gestoría o Hacienda.
 
-**Cómo arreglarlo:** añadir `.catch()` o estado de error local que muestre un mensaje dentro del modal.
+* **🕵️ Escenario de Error (Caso de Uso Roto):** El administrador elimina 15 reservas antiguas de Mayo para "limpiar la vista". Al mes siguiente, el reporte de ingresos de Mayo no cuadra con los cobros reales en banco. No hay forma de reconstruir los datos eliminados. Supabase no tiene papelera de reciclaje por defecto.
 
----
-
-## 🟡 A REVISAR 7 — Reservas del panel inversor sin límite temporal
-
-**Archivo:** `src/app/sociedades/[id]/page.tsx` línea 39
-
-```ts
-supabase.from("reservas").select("*").eq("sociedad_id", id).order("created_at", { ascending: false })
-```
-
-Carga todas las reservas de la sociedad desde el inicio de los tiempos. Con volumen alto de reservas históricas puede volverse lento.
-
-**Cómo arreglarlo:** añadir filtro de año actual igual que en reportes.
+* **🛠️ Solución de Ingeniería:** Reemplazar el DELETE por soft delete. Opción A (mínima, sin cambio de schema): en lugar de `delete()`, hacer `update({ estado: 'eliminada' })` y excluir ese estado en todas las queries de listado. Opción B (recomendada): añadir columna `deleted_at TIMESTAMPTZ DEFAULT NULL` en la tabla, hacer `update({ deleted_at: new Date().toISOString() })`, y filtrar con `.is("deleted_at", null)` en todas las lecturas.
 
 ---
 
-## ✅ RESUELTO — `.env.local` correctamente configurado
+### 📦 Componente: `src/app/reservas/actions.ts` → `crearReserva()` — Estado del Activo no Validado
 
-El archivo se llama `.env.local` y `.gitignore` incluye `.env*`, por lo que las credenciales no se commitearán.
+> ✅ **RESUELTO** — Query del activo ampliada con `estado`. Se lanza error si `activo.estado !== "ACTIVO"` antes del INSERT.
 
----
+* **🔴 Agujero de Lógica / Riesgo:** La query de validación del activo selecciona `sociedad_id, licencia, capacidad` pero **no recupera ni comprueba `estado`**. El filtrado por `estado === "ACTIVO"` solo existe en el cliente (`NuevaReservaModal.tsx`). Cualquier petición que omita esa capa cliente puede crear reservas sobre activos en `MANTENIMIENTO` o `ALERTA`.
 
-## ✅ RESUELTO — Queries con paginación / filtro de año
+* **🕵️ Escenario de Error (Caso de Uso Roto):** La moto MA-2423-D está en MANTENIMIENTO después de una avería grave. Un bug en el frontend (o una petición directa a la server action) crea una reserva para esa moto. El cliente se presenta, la moto no está operativa, y se produce un conflicto operativo y reputacional.
 
-- `src/app/reportes/page.tsx` — reservas filtradas por año actual (`.gte("fecha", "YYYY-01-01")`)
-- `src/app/flota/page.tsx` — activos limitados a 200 registros (`.limit(200)`)
-
----
-
-## ✅ RESUELTO — "X disponibles hoy" en paso 1 del modal
-
-`src/components/reservas/NuevaReservaModal.tsx` — el texto muestra `"X disponible/s"` sin referencia errónea al día de hoy. La disponibilidad es dinámica según la fecha seleccionada.
-
----
-
-## ✅ RESUELTO — Precio e ingreso calculados en servidor
-
-`src/app/reservas/actions.ts` — `crearReserva` ignora cualquier precio enviado por el cliente y recalcula `ingreso_neto` en servidor según el activo y la duración. El cliente no puede manipular el precio.
+* **🛠️ Solución de Ingeniería:**
+  ```typescript
+  const { data: activo, error: activoError } = await supabase
+    .from("activos")
+    .select("sociedad_id, licencia, capacidad, estado") // añadir estado
+    .eq("id", data.activo_id)
+    .maybeSingle();
+  if (activoError || !activo) throw new Error("Activo no encontrado");
+  if (activo.estado !== "ACTIVO") throw new Error("Este activo no está disponible para reservas.");
+  ```
 
 ---
 
-## ✅ RESUELTO — Doble booking prevenido en servidor
-
-`src/app/reservas/actions.ts` — `crearReserva` comprueba solapamiento de fechas antes de insertar y lanza error si el activo ya tiene una reserva activa en esa fecha.
+## 🟡 Hallazgos Medios
 
 ---
 
-## ✅ RESUELTO — CSV sin inyección de fórmulas
+### 📦 Componente: `src/app/reservas/actions.ts` → `crearReserva()` — Efecto Cierre no Validado
 
-`src/app/reportes/page.tsx` — la función `exportarCSV` sanitiza todas las celdas eliminando caracteres de fórmula (`=`, `+`, `-`, `@`, tab, CR) antes de generar el archivo.
+> ✅ **RESUELTO** — Validación añadida en servidor: calcula `hora_inicio + horas_actividad` y rechaza si supera las 22:00.
 
----
+* **🟡 Agujero de Lógica / Riesgo:** El servidor no calcula `hora_inicio + duracion_horas` ni verifica que la actividad finalice antes de las 22:00 (hora de cierre del negocio). El TimeInput del cliente limita la hora de inicio pero no la hora de fin, y la restricción del cliente puede omitirse enviando la petición directamente.
 
-## ✅ RESUELTO — Middleware sin bucle infinito para inversores
+* **🕵️ Escenario de Error (Caso de Uso Roto):** Alguien reserva una moto a las 21:00 con duración de 4h. La actividad terminaría a las 01:00. La reserva se crea. Aparece en el sistema como activa durante la madrugada, bloquea el activo para el día siguiente, y los informes de horas no cuadran.
 
-`src/middleware.ts` — la ruta `/sociedades/:id` está excluida de `ADMIN_ONLY` para evitar bucle. Los inversores son redirigidos a su panel propio sin riesgo de redirección infinita.
-
----
-
-## ✅ RESUELTO — Autorización en server actions
-
-Todas las server actions (`cambiarEstadoReserva`, `eliminarReserva`, `crearActivo`, `eliminarActivo`, `marcarRevision`) verifican sesión de usuario y comprueban que el perfil tiene permiso sobre el recurso antes de ejecutar cualquier operación.
-
----
-
-## ✅ RESUELTO — Nombre del activo en listas de reservas
-
-`src/app/reservas/page.tsx` y `src/app/sociedades/[id]/page.tsx` — muestran `activo_nombre ?? activo_id` con fallback para reservas antiguas sin nombre almacenado.
+* **🛠️ Solución de Ingeniería:** Antes del INSERT en `crearReserva()`:
+  ```typescript
+  const HORA_CIERRE = 22; // configurable
+  const [horaInicio, minInicio] = data.hora.split(":").map(Number);
+  const horasActividad = HORAS_CONSUMIDAS[data.duracion] ?? 4;
+  const minutosFinActividad = horaInicio * 60 + minInicio + horasActividad * 60;
+  if (minutosFinActividad > HORA_CIERRE * 60) {
+    throw new Error(`Esta reserva terminaría después de las ${HORA_CIERRE}:00. Elige una hora de salida anterior.`);
+  }
+  ```
 
 ---
 
-## ✅ RESUELTO — Categorías de barco vacías ocultas en el modal
+### 📦 Componente: `src/app/reservas/actions.ts` → `crearReserva()` — `horas_consumidas` Aceptado del Cliente
 
-`src/components/reservas/NuevaReservaModal.tsx` — el paso 2 filtra las categorías de barco para mostrar solo las que tienen activos disponibles en la flota, evitando opciones seleccionables que llevarían a un callejón sin salida.
+> ✅ **RESUELTO** — `horas_consumidas` ahora se calcula en servidor con `HORAS_CONSUMIDAS[data.duracion] ?? 4` y sobrescribe el valor del cliente en el INSERT.
+
+* **🟡 Agujero de Lógica / Riesgo:** `horas_consumidas` viene del payload del cliente y se inserta directamente vía `...data` sin recalcularse en el servidor. Aunque `ingreso_neto` sí se protege (✅), este campo no. Un valor manipulado (`0` o `9999`) afecta directamente al incremento de horas del activo al completar la reserva, corrompiendo el sistema de mantenimiento.
+
+* **🕵️ Escenario de Error (Caso de Uso Roto):** Un empleado malicioso o un bug envía `horas_consumidas: 0` en una reserva de 8h. Al marcar como completada, el activo no suma horas. La moto llega a su límite real de mantenimiento sin que el sistema lo detecte, poniendo en riesgo la seguridad del equipo y de los clientes.
+
+* **🛠️ Solución de Ingeniería:** Eliminar `horas_consumidas` del tipo de entrada y calcularlo en servidor usando la misma fuente de verdad (`HORAS_CONSUMIDAS`):
+  ```typescript
+  // En crearReserva(), después de resolver la duración:
+  const horas_consumidas = HORAS_CONSUMIDAS[data.duracion] ?? 4;
+  
+  const { error } = await supabase.from("reservas").insert({
+    ...data,
+    horas_consumidas,   // ← sobrescribe cualquier valor del cliente
+    sociedad_id: activo.sociedad_id,
+    estado: "confirmada",
+    ingreso_neto,
+  });
+  ```
+
+---
+
+### 📦 Componente: `src/app/reservas/actions.ts` → `cambiarEstadoReserva()` — Ventana de Cancelación Ausente
+
+> ⛔ **NO APLICA** — Las cancelaciones en Click&Boat y Sandboat las gestiona la plataforma. En Slora el admin solo sincroniza el estado tras una cancelación ya procesada externamente. No corresponde aplicar restricción temporal aquí.
+
+* **🟡 Agujero de Lógica / Riesgo:** No existe validación de ventana de cancelación. El sistema permite cambiar el estado a `cancelada` a cualquier hora, incluso segundos antes del inicio de la actividad. No se comprueba `reserva.fecha + reserva.hora - now() > umbral_minimo`.
+
+* **🕵️ Escenario de Error (Caso de Uso Roto):** Un cliente cancela su reserva a las 09:58 cuando la salida era a las 10:00. El activo queda libre sin tiempo de reacción. Si la política del negocio es "sin cancelaciones con menos de 24h de antelación", el sistema lo permite igualmente. Pérdida de ingreso sin posibilidad de reclamación documentada.
+
+* **🛠️ Solución de Ingeniería:** Al transicionar a `cancelada`, añadir la comprobación temporal. Requiere obtener `fecha` y `hora` de la reserva en la misma query (actualmente ya se hace `.select("sociedad_id, activo_id, horas_consumidas")`; añadir `fecha, hora`):
+  ```typescript
+  if (estado === "cancelada") {
+    const fechaHoraReserva = new Date(`${reserva.fecha}T${reserva.hora}:00`);
+    const horasRestantes = (fechaHoraReserva.getTime() - Date.now()) / 3_600_000;
+    const HORAS_MIN = 24; // política del negocio
+    if (horasRestantes >= 0 && horasRestantes < HORAS_MIN) {
+      throw new Error(`No se puede cancelar con menos de ${HORAS_MIN}h de antelación.`);
+    }
+  }
+  ```
+
+---
+
+## 🔵 Hallazgos Menores
+
+---
+
+### 📦 Componente: `src/app/reservas/actions.ts` → `crearReserva()` — Reserva Retroactiva Intradiaria
+
+> ✅ **RESUELTO** — Validación reemplazada por comparación de `fecha+hora` completa contra `new Date()`. Modo estricto activado: no se permiten reservas en horas ya pasadas del día actual.
+
+* **🔵 Agujero de Lógica / Riesgo:** La validación de fecha pasada usa solo comparación de **fecha** (`data.fecha < hoy`), no de **fecha + hora**. Si hoy es `2026-06-01` y son las 20:00, es posible crear una reserva para hoy a las 08:00 — una hora que ya pasó hace 12 horas.
+
+* **🕵️ Escenario de Error (Caso de Uso Roto):** Un empleado crea a las 19:00 una reserva ficticia "para esta mañana a las 09:00" para justificar horas de uso no registradas, o para inflar las métricas del día. El sistema la acepta sin objeción.
+
+* **🛠️ Solución de Ingeniería:** Depende de la política del negocio. Si se quieren prohibir registros retroactivos (modo estricto):
+  ```typescript
+  const ahora = new Date();
+  const fechaHoraReserva = new Date(`${data.fecha}T${data.hora}:00`);
+  if (fechaHoraReserva < ahora) {
+    throw new Error("No se pueden crear reservas en fechas u horas pasadas.");
+  }
+  ```
+  Si se permiten registros tardíos del mismo día (ej. para regularizar), mantener la validación actual y documentar la decisión.
+
+---
+
+## Vectores Cubiertos Correctamente ✅
+
+| Vector | Estado | Detalle |
+|--------|--------|---------|
+| Precio calculado en servidor | ✅ | `ingreso_neto` recalculado completamente en `crearReserva()`. Inmune a inyección. |
+| Autenticación en todas las actions | ✅ | Todas verifican `supabase.auth.getUser()` antes de operar. |
+| Autorización multi-tenant | ✅ | `perfil.sociedad_id === recurso.sociedad_id` verificado salvo para `rol === 'master'`. |
+| Existencia del activo validada | ✅ | `.maybeSingle()` + comprobación de error antes del INSERT. |
+| Solapamiento de fechas | ✅ | Check de reservas activas para mismo `activo_id` y `fecha`. Filtro de estados correcto. |
+| Fecha pasada bloqueada | ✅ | `crearReserva()` rechaza fechas anteriores a hoy. |
+| Integridad antes de eliminar activo | ✅ | `eliminarActivo()` comprueba reservas activas existentes antes de borrar. |
+| Remediaciones `.single()` | ✅ | Todas las queries usan `.maybeSingle()` con guard de null. Sin crash por filas duplicadas. |
+| Estado en whitelist | ✅ | `cambiarEstadoReserva()` valida contra `ESTADOS_VALIDOS`. No se pueden inyectar estados arbitrarios. |
+
+---
+
+*Informe generado por QA Master Engine — Slora Nautic · 2026-06-01*
+Soft delete (las eliminadas no desaparecen de la DB, solo se ocultan) , lo que se elimine que se elimine no quiero que persista en la bd , Race condition con constraint de DB pendiente (UNIQUE INDEX manual en Supabase) , 

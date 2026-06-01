@@ -5,39 +5,83 @@ interface TimeInputProps {
   onChange: (value: string) => void;
 }
 
-const HORAS: string[] = [];
-for (let h = 8; h <= 22; h++) {
-  HORAS.push(`${h.toString().padStart(2, "0")}:00`);
-  if (h < 22) HORAS.push(`${h.toString().padStart(2, "0")}:30`);
-}
-
 export function TimeInput({ value, onChange }: TimeInputProps) {
+  const parts = value.split(":");
+  const h = parseInt(parts[0] ?? "9", 10);
+  const m = parseInt(parts[1] ?? "0", 10);
+
+  function emit(newH: number, newM: number) {
+    onChange(`${newH.toString().padStart(2, "0")}:${newM.toString().padStart(2, "0")}`);
+  }
+
+  function stepH(dir: 1 | -1) {
+    const next = h + dir;
+    if (next < 8 || next > 22) return;
+    emit(next, m);
+  }
+
+  function stepM() {
+    emit(h, m === 0 ? 30 : 0);
+  }
+
   return (
     <div
-      className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors focus-within:border-[var(--blue)]"
+      className="inline-flex items-stretch rounded-lg border overflow-hidden select-none"
       style={{ borderColor: "var(--border)", background: "var(--surface)" }}
     >
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
-        <circle cx="12" cy="12" r="10" />
-        <polyline points="12 6 12 12 16 14" />
-      </svg>
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="w-full outline-none bg-transparent text-[13px] cursor-pointer"
-        style={{
-          color: "var(--foreground)",
-          fontFamily: "var(--font-dm-mono)",
-          fontWeight: 500,
-          border: "none",
-          appearance: "none",
-          WebkitAppearance: "none",
-        }}
-      >
-        {HORAS.map(h => (
-          <option key={h} value={h}>{h}</option>
-        ))}
-      </select>
+      <span className="flex items-center px-2.5" style={{ color: "var(--text-3)", borderRight: "1px solid var(--border)" }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+        </svg>
+      </span>
+
+      {/* Horas */}
+      <div className="flex flex-col items-center" style={{ borderRight: "1px solid var(--border)" }}>
+        <button
+          type="button"
+          onClick={() => stepH(1)}
+          disabled={h >= 22}
+          className="px-4 py-0.5 text-[10px] hover:bg-[var(--muted)] transition-colors disabled:opacity-30 w-full text-center"
+          style={{ color: "var(--text-3)" }}
+        >▲</button>
+        <span
+          className="font-mono text-[14px] font-semibold px-4 py-1 tabular-nums"
+          style={{ color: "var(--foreground)", minWidth: "36px", textAlign: "center" }}
+        >
+          {h.toString().padStart(2, "0")}
+        </span>
+        <button
+          type="button"
+          onClick={() => stepH(-1)}
+          disabled={h <= 8}
+          className="px-4 py-0.5 text-[10px] hover:bg-[var(--muted)] transition-colors disabled:opacity-30 w-full text-center"
+          style={{ color: "var(--text-3)" }}
+        >▼</button>
+      </div>
+
+      <span className="flex items-center px-1 font-mono text-[16px] font-bold" style={{ color: "var(--text-2)" }}>:</span>
+
+      {/* Minutos */}
+      <div className="flex flex-col items-center" style={{ borderLeft: "1px solid var(--border)" }}>
+        <button
+          type="button"
+          onClick={stepM}
+          className="px-4 py-0.5 text-[10px] hover:bg-[var(--muted)] transition-colors w-full text-center"
+          style={{ color: "var(--text-3)" }}
+        >▲</button>
+        <span
+          className="font-mono text-[14px] font-semibold px-4 py-1 tabular-nums"
+          style={{ color: "var(--foreground)", minWidth: "36px", textAlign: "center" }}
+        >
+          {m.toString().padStart(2, "0")}
+        </span>
+        <button
+          type="button"
+          onClick={stepM}
+          className="px-4 py-0.5 text-[10px] hover:bg-[var(--muted)] transition-colors w-full text-center"
+          style={{ color: "var(--text-3)" }}
+        >▼</button>
+      </div>
     </div>
   );
 }

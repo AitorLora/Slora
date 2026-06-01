@@ -82,14 +82,9 @@ export const TARIFAS_BARCO: Record<BarcoCategoria, TarifaBarco> = {
 export const DURACIONES_BARCO = ["Medio día", "Día completo"];
 
 export const FUENTES = [
-  "Directo",
-  "WhatsApp",
-  "Teléfono",
-  "slora.app",
-  "Airbnb",
-  "Booking.com",
-  "Viator",
-  "GetYourGuide",
+  "Click and Boat",
+  "Sandboat",
+  "Manual",
 ];
 
 export const assets: Asset[] = [

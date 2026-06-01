@@ -36,7 +36,7 @@ export default function ReservasPage() {
     try {
       const supabase = createClient();
       const [{ data: res, error: e1 }, { data: soc, error: e2 }] = await Promise.all([
-        supabase.from("reservas").select("*").gte("fecha", `${new Date().getFullYear() - 1}-01-01`).order("created_at", { ascending: false }),
+        supabase.from("reservas").select("*").gte("fecha", `${new Date().getFullYear() - 1}-01-01`).neq("estado", "eliminada").order("created_at", { ascending: false }),
         supabase.from("sociedades").select("id, nombre"),
       ]);
       if (e1) throw e1;
@@ -156,10 +156,11 @@ export default function ReservasPage() {
           <p>No hay reservas con estos filtros</p>
         </div>
       ) : (
-        <div className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--border)" }}>
+        <div className="rounded-xl border" style={{ borderColor: "var(--border)" }}>
+          <div className="overflow-x-auto">
           {/* Cabecera */}
           <div className="grid px-4 py-2 text-[10px] uppercase tracking-[0.06em] font-medium"
-            style={{ gridTemplateColumns: "72px 1fr 1fr 88px 110px 96px 128px 32px", gap: "12px", color: "var(--text-3)", background: "var(--muted)", borderBottom: "1px solid var(--border)" }}>
+            style={{ gridTemplateColumns: "72px 1fr 1fr 88px 110px 96px 128px 32px", gap: "12px", minWidth: "810px", color: "var(--text-3)", background: "var(--muted)", borderBottom: "1px solid var(--border)" }}>
             <span>Ingreso</span>
             <span>Activo</span>
             <span>Cliente</span>
@@ -171,7 +172,7 @@ export default function ReservasPage() {
           </div>
 
           {/* Filas */}
-          <div style={{ background: "var(--surface)" }}>
+          <div style={{ background: "var(--surface)", minWidth: "810px" }}>
             {filtradas.map((r, i) => {
               const est = ESTADO_STYLE[r.estado] ?? ESTADO_STYLE.pendiente;
               const fecha = r.fecha ? new Date(r.fecha + "T12:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
@@ -264,6 +265,7 @@ export default function ReservasPage() {
                 </div>
               );
             })}
+          </div>
           </div>
         </div>
       )}

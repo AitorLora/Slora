@@ -80,43 +80,45 @@ export default function ReportesPage() {
   const totalHoras    = reservasMes.reduce((s, r) => s + Number(r.horas_consumidas), 0);
   const totalReservas = reservasMes.length;
 
-  const filters = (
-    <div className="flex items-center gap-2">
-      <select value={mes} onChange={e => setMes(e.target.value)}
-        className="px-3 py-1.5 rounded-lg border text-[13px] outline-none cursor-pointer"
-        style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}>
-        {mesesDisponibles.map(m => <option key={m} value={m}>{MESES_LABELS[m] ?? m}</option>)}
-      </select>
-      <select value={sociedadFiltro} onChange={e => setSociedadFiltro(e.target.value)}
-        className="px-3 py-1.5 rounded-lg border text-[13px] outline-none cursor-pointer"
-        style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}>
-        <option value="">Todas las sociedades</option>
-        {sociedades.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-      </select>
-      <div className="w-px h-5 mx-1" style={{ background: "var(--border)" }} />
-      <button onClick={() => exportarCSV(mes, MESES_LABELS[mes] ?? mes, sociedadesFiltradas, reservasMes, activos)}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[13px] font-medium hover:bg-[var(--muted)] transition-colors"
-        style={{ borderColor: "var(--border)", color: "var(--foreground)", background: "var(--surface)" }}>
-        ↓ CSV
-      </button>
-      <button onClick={() => setTimeout(() => window.print(), 0)}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white"
-        style={{ background: "var(--navy)" }}
-        onMouseEnter={e => (e.currentTarget.style.background = "var(--navy-light)")}
-        onMouseLeave={e => (e.currentTarget.style.background = "var(--navy)")}>
-        ⎙ Imprimir
-      </button>
-    </div>
+  const printButton = (
+    <button onClick={() => setTimeout(() => window.print(), 0)}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white print:hidden"
+      style={{ background: "var(--navy)" }}
+      onMouseEnter={e => (e.currentTarget.style.background = "var(--navy-light)")}
+      onMouseLeave={e => (e.currentTarget.style.background = "var(--navy)")}>
+      ⎙ Imprimir
+    </button>
   );
 
   return (
-    <AppShell title="Reportes" subtitle={`Reporte mensual · ${MESES_LABELS[mes] ?? mes}`} actions={filters}>
+    <AppShell title="Reportes" subtitle="Reporte mensual" actions={printButton}>
       {errorCarga && (
         <div className="px-4 py-3 rounded-xl mb-4 border text-[13px]"
           style={{ background: "var(--red-bg)", borderColor: "var(--red-text)", color: "var(--red-text)" }}>
           {errorCarga}
         </div>
       )}
+
+      {/* Filtros y exportación */}
+      <div className="flex items-center gap-2 mb-5 flex-wrap print:hidden">
+        <select value={mes} onChange={e => setMes(e.target.value)}
+          className="px-3 py-1.5 rounded-lg border text-[13px] outline-none cursor-pointer"
+          style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}>
+          {mesesDisponibles.map(m => <option key={m} value={m}>{MESES_LABELS[m] ?? m}</option>)}
+        </select>
+        <select value={sociedadFiltro} onChange={e => setSociedadFiltro(e.target.value)}
+          className="px-3 py-1.5 rounded-lg border text-[13px] outline-none cursor-pointer"
+          style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}>
+          <option value="">Todas las sociedades</option>
+          {sociedades.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+        </select>
+        <button onClick={() => exportarCSV(mes, MESES_LABELS[mes] ?? mes, sociedadesFiltradas, reservasMes, activos)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[13px] font-medium hover:bg-[var(--muted)] transition-colors"
+          style={{ borderColor: "var(--border)", color: "var(--foreground)", background: "var(--surface)" }}>
+          ↓ CSV
+        </button>
+      </div>
+
       <div className="hidden print:block mb-6 pb-4 border-b" style={{ borderColor: "var(--border)" }}>
         <div className="flex items-center justify-between">
           <div>
@@ -158,8 +160,8 @@ export default function ReportesPage() {
             const horasSoc     = reservasSoc.reduce((s, r) => s + Number(r.horas_consumidas), 0);
 
             return (
-              <div key={soc.id} className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--border)" }}>
-                <div className="flex items-center justify-between px-5 py-3" style={{ background: "var(--navy)" }}>
+              <div key={soc.id} className="rounded-xl border" style={{ borderColor: "var(--border)" }}>
+                <div className="flex items-center justify-between px-5 py-3 rounded-t-xl" style={{ background: "var(--navy)" }}>
                   <span className="text-[13px] font-semibold text-white">{soc.nombre}</span>
                   <div className="flex items-center gap-4 text-[11px]" style={{ color: "#7BAFD4" }}>
                     <span>{horasSoc}h utilizadas</span>
