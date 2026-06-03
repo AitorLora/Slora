@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { readFileSync } from "fs";
-import { join } from "path";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import * as ical from "node-ical";
 
 function toMadrid(date: Date): { fecha: string; hora: string } {
@@ -54,10 +53,23 @@ export async function GET(request: Request) {
         continue;
       }
     } else {
+      // Sin URL configurada: leer el .ics de prueba servido como asset estático.
+      // (En Workers no hay filesystem, así que se obtiene por HTTP del propio origen.)
       try {
-        icsText = readFileSync(join(process.cwd(), "public", feed.mockFile), "utf-8");
-      } catch {
-        // Archivo mock ausente — omitir este feed silenciosamente
+        const assetUrl = new URL(`/${feed.mockFile}`, request.url);
+        let res: Response;
+        try {
+          // Cloudflare: el binding ASSETS sirve el estático sin pasar por el Worker.
+          const { env } = getCloudflareContext();
+          res = await (env as any).ASSETS.fetch(assetUrl);
+        } catch {
+          // Local (next dev): fetch normal al propio servidor.
+          res = await fetch(assetUrl, { cache: "no-store" });
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        icsText = await res.text();
+      } catch (e: any) {
+        errores.push(`[${feed.fuente}] mock: ${e?.message ?? e}`);
         continue;
       }
     }

@@ -116,14 +116,14 @@ export default async function DashboardPage() {
               r.estado === "en_curso"   ? "#E0F2FE" :
               r.estado === "cancelada"  ? "var(--gray-bg)" : "var(--amber-bg)";
             return (
-              <div key={r.id} className="grid items-center px-4 py-3 border-b last:border-0 border-[var(--border)] hover:bg-[var(--muted)] transition-colors"
-                style={{ gridTemplateColumns: "1fr 180px 72px 90px" }}>
-                <span className="text-[13px] font-medium text-[var(--foreground)] truncate pr-3">{r.cliente}</span>
-                <span className="font-mono text-[11px] text-white px-1.5 py-0.5 rounded w-fit" style={{ background: "var(--navy)" }}>
+              <div key={r.id} className="grid items-center gap-2 px-4 py-3 border-b last:border-0 border-[var(--border)] hover:bg-[var(--muted)] transition-colors"
+                style={{ gridTemplateColumns: "minmax(0,1fr) minmax(0,170px) auto auto" }}>
+                <span className="text-[13px] font-medium text-[var(--foreground)] truncate min-w-0">{r.cliente}</span>
+                <span className="font-mono text-[11px] text-white px-1.5 py-0.5 rounded inline-block max-w-full truncate min-w-0" style={{ background: "var(--navy)" }}>
                   {r.activo_nombre ?? r.activo_id}
                 </span>
-                <span className="font-mono text-[13px] font-semibold text-[var(--foreground)] text-right">€{Number(r.ingreso_neto).toLocaleString("es-ES")}</span>
-                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full text-center justify-self-end" style={{ color: estadoColor, background: estadoBg }}>
+                <span className="font-mono text-[13px] font-semibold text-[var(--foreground)] text-right whitespace-nowrap">€{Number(r.ingreso_neto).toLocaleString("es-ES")}</span>
+                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full text-center whitespace-nowrap justify-self-end" style={{ color: estadoColor, background: estadoBg }}>
                   {r.estado.charAt(0).toUpperCase() + r.estado.slice(1).replace("_", " ")}
                 </span>
               </div>
