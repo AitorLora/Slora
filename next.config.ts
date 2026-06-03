@@ -28,3 +28,5 @@ const nextConfig: NextConfig = {
 // En dev usamos Turbopack puro (sin el webpack de next-pwa, que rompe el dev server
 // de Next 16). El SW solo se genera/activa en producción.
 export default isDev ? nextConfig : withPWA(nextConfig);
+
+import('@opennextjs/cloudflare').then(m => m.initOpenNextCloudflareForDev());
