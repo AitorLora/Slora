@@ -153,6 +153,27 @@ export default function ReservasPage() {
     return true;
   });
 
+  // Orden de visualización:
+  //  1) Externas pendientes arriba (bandeja de tareas), por fecha+hora ascendente — la salida
+  //     más próxima primero, para atender antes lo inminente.
+  //  2) El resto debajo, por fecha descendente (lo más reciente primero), desempate created_at.
+  const esPendienteExterna = (r: any) => Boolean(r.id_externo && r.estado === "pendiente");
+  const claveFechaHora = (r: any) => `${String(r.fecha ?? "").slice(0, 10)}T${r.hora ?? "00:00"}`;
+
+  const ordenadas = [...filtradas].sort((a, b) => {
+    const pa = esPendienteExterna(a), pb = esPendienteExterna(b);
+    if (pa !== pb) return pa ? -1 : 1;            // pendientes externas primero
+
+    if (pa) {                                      // ambas pendientes: fecha+hora ascendente
+      const ka = claveFechaHora(a), kb = claveFechaHora(b);
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    }
+    // resto: fecha descendente, desempate por created_at descendente
+    const fa = String(a.fecha ?? "").slice(0, 10), fb = String(b.fecha ?? "").slice(0, 10);
+    if (fa !== fb) return fa < fb ? 1 : -1;
+    return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime();
+  });
+
   const conflictos = reservas.filter(r => r.estado === "conflicto").length;
 
   const actions = (
@@ -236,7 +257,7 @@ export default function ReservasPage() {
 
             {/* Filas */}
             <div style={{ background: "var(--surface)", minWidth: "680px" }}>
-              {filtradas.map((r, i) => {
+              {ordenadas.map((r, i) => {
                 const est              = ESTADO_STYLE[r.estado] ?? ESTADO_STYLE.pendiente;
                 const fecha            = r.fecha ? new Date(r.fecha + "T12:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
                 const esExtPendiente   = Boolean(r.id_externo && r.estado === "pendiente");
@@ -254,7 +275,7 @@ export default function ReservasPage() {
                   <div
                     key={r.id}
                     className="relative"
-                    style={{ borderBottom: i < filtradas.length - 1 ? "1px solid var(--border)" : "none" }}>
+                    style={{ borderBottom: i < ordenadas.length - 1 ? "1px solid var(--border)" : "none" }}>
 
                     {/* Fondo pulsante (solo reservas externas pendientes) */}
                     {esExtPendiente && (

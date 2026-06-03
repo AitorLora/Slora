@@ -64,7 +64,8 @@ function ahora() {
 
 export function NuevaReservaModal({ open, onClose, onGuardar, initialValues }: Props) {
   const [activos, setActivos]           = useState<ActivoDB[]>([]);
-  const [reservasOcupadas, setOcupadas] = useState<string[]>([]); // activo_ids reservados en la fecha
+  // Franjas ya ocupadas en la fecha (minutos desde medianoche), para detectar solape por hora
+  const [reservasFecha, setReservasFecha] = useState<{ activo_id: string; inicioMin: number; finMin: number }[]>([]);
   const [sociedades, setSociedades]     = useState<{ id: string; nombre: string }[]>([]);
   const [paso, setPaso]       = useState<Paso>(1);
   const [tipo, setTipo]       = useState<"moto" | "barco" | null>(null);
@@ -110,17 +111,21 @@ export function NuevaReservaModal({ open, onClose, onGuardar, initialValues }: P
     });
   }, [open]);
 
-  // Recarga activos ocupados cuando cambia la fecha
+  // Recarga las franjas ocupadas cuando cambia la fecha
   useEffect(() => {
     if (!open || !fecha) return;
     import("@/lib/supabase/client").then(({ createClient }) => {
       createClient()
         .from("reservas")
-        .select("activo_id")
+        .select("activo_id, hora, horas_consumidas")
         .eq("fecha", fecha)
         .in("estado", ["pendiente", "confirmada", "en_curso"])
         .then(({ data }) => {
-          setOcupadas((data ?? []).map((r: any) => r.activo_id));
+          setReservasFecha((data ?? []).map((r: any) => {
+            const [hh, mm] = (r.hora ?? "09:00").split(":").map(Number);
+            const inicioMin = hh * 60 + mm;
+            return { activo_id: r.activo_id, inicioMin, finMin: inicioMin + (r.horas_consumidas ?? 4) * 60 };
+          }));
         });
     });
   }, [open, fecha]);
@@ -132,13 +137,33 @@ export function NuevaReservaModal({ open, onClose, onGuardar, initialValues }: P
 
   if (!open) return null;
 
-  const disponibles = (t: "moto" | "barco", cat?: BarcoCategoria) =>
-    activos.filter(a =>
+  // ¿La franja [iniMin, finMin) solapa con alguna reserva existente de este activo?
+  // Solape estricto de intervalos — mismo criterio que el servidor en crearReserva().
+  const slotOcupado = (activoId: string, iniMin: number, finMin: number) =>
+    reservasFecha.some(r => r.activo_id === activoId && iniMin < r.finMin && finMin > r.inicioMin);
+
+  // Franja pedida según la hora seleccionada. Si aún no hay duración (pasos 1-2),
+  // se usa la duración mínima del catálogo: estimación permisiva que no oculta un
+  // activo libre a esa hora. El paso 3 refina con la duración real.
+  const franjaPedida = (t: "moto" | "barco") => {
+    const [hh, mm] = (hora || "09:00").split(":").map(Number);
+    const iniMin = hh * 60 + mm;
+    const cat = t === "barco" ? DURACIONES_BARCO : DURACIONES_MOTO;
+    const horas = duracion && cat.includes(duracion)
+      ? (HORAS_CONSUMIDAS[duracion] ?? 4)
+      : Math.min(...cat.map(d => HORAS_CONSUMIDAS[d] ?? 4));
+    return { iniMin, finMin: iniMin + horas * 60 };
+  };
+
+  const disponibles = (t: "moto" | "barco", cat?: BarcoCategoria) => {
+    const { iniMin, finMin } = franjaPedida(t);
+    return activos.filter(a =>
       a.tipo === t &&
       a.estado === "ACTIVO" &&
-      !reservasOcupadas.includes(a.id) &&
+      !slotOcupado(a.id, iniMin, finMin) &&
       (t === "moto" || !cat || a.categoria === cat)
     );
+  };
 
   // Activos asignados por rotación (los N de menos horas de motor, libres en la fecha)
   const activosAsignados = (() => {

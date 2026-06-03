@@ -61,10 +61,28 @@ export async function GET(request: Request) {
     await supabase.from("reservas").update({ estado: "completada" }).in("id", toCompletada);
   }
 
+  // Auto-vencimiento: reservas externas pendientes (id_externo no nulo) con fecha pasada que
+  // nadie atendió → se cancelan. Se reutiliza 'cancelada' (ya en el CHECK constraint de la DB).
+  const { data: vencidas } = await supabase
+    .from("reservas")
+    .select("id")
+    .eq("estado", "pendiente")
+    .not("id_externo", "is", null)
+    .lt("fecha", todaySpain);
+
+  const caducadas = vencidas?.map(r => r.id) ?? [];
+  if (caducadas.length > 0) {
+    await supabase
+      .from("reservas")
+      .update({ estado: "cancelada", notas: "Caducada automáticamente: pendiente externa no atendida" })
+      .in("id", caducadas);
+  }
+
   return NextResponse.json({
     ok: true,
     en_curso:   toEnCurso.length,
     completada: toCompletada.length,
+    caducadas:  caducadas.length,
     timestamp:  now.toISOString(),
   });
 }

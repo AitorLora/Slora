@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import {
-  LayoutDashboard, CalendarCheck, Anchor, Calculator, Building2, BarChart3, LogOut, PanelLeftClose, PanelLeftOpen, Plug,
+  LayoutDashboard, CalendarCheck, Anchor, Calculator, Building2, BarChart3, LogOut, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 
 const navItems = [
@@ -16,7 +16,6 @@ const navItems = [
   { label: "Presupuesto", href: "/presupuesto", Icon: Calculator },
   { label: "Sociedades",  href: "/sociedades",  Icon: Building2 },
   { label: "Reportes",    href: "/reportes",    Icon: BarChart3 },
-  { label: "Simulador",   href: "/simulador",   Icon: Plug },
 ];
 
 interface AppShellProps {
