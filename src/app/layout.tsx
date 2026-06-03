@@ -52,9 +52,17 @@ export default function RootLayout({
         {children}
         <script dangerouslySetInnerHTML={{ __html: `
           if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-              navigator.serviceWorker.register('/sw.js');
-            });
+            ${process.env.NODE_ENV === "production"
+              ? `window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js'); });`
+              : `navigator.serviceWorker.getRegistrations().then((regs) => {
+                   if (regs.length) {
+                     Promise.all(regs.map((r) => r.unregister()))
+                       .then(() => (self.caches ? caches.keys() : []))
+                       .then((keys) => Promise.all((keys || []).map((k) => caches.delete(k))))
+                       .then(() => window.location.reload());
+                   }
+                 });`
+            }
           }
         `}} />
       </body>
