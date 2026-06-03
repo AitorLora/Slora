@@ -20,7 +20,7 @@ SUMMARY:Reserva Click&Boat - Pedro Alvarez
 DTSTART:20260620T070000Z
 DTEND:20260620T110000Z
 UID:cnb-barcosinlicencia-pedro-20260620@clickandboat.com
-DESCRIPTION:Cliente: Pedro Alvarez | ActivoID: bcd9cbf9-82fa-40db-a59a-efbcad0bc6db | Canal: Click&Boat
+DESCRIPTION:Cliente: Pedro Alvarez | ActivoID:  | Canal: Click&Boat
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:Reserva Click&Boat - Laura Mora
@@ -34,13 +34,13 @@ SUMMARY:Reserva Click&Boat - Andres Fernandez
 DTSTART:20260620T120000Z
 DTEND:20260620T140000Z
 UID:cnb-moto123ma-andres-20260620@clickandboat.com
-DESCRIPTION:Cliente: Andres Fernandez | ActivoID: 9b495a09-de3b-4cd2-80f8-7f7adf3d1d41 | Canal: Click&Boat
+DESCRIPTION:Cliente: Andres Fernandez | ActivoID: 9b495a09-de3b-4cd2-80f8-717adf3d1d41 | Canal: Click&Boat
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:Reserva Click&Boat - Isabel Torres
 DTSTART:20260620T070000Z
 DTEND:20260620T090000Z
 UID:cnb-motopp3333-isabel-20260620@clickandboat.com
-DESCRIPTION:Cliente: Isabel Torres | ActivoID: 4aed93e9-2b19-46bc-9228-455a64aea1c0 | Canal: Click&Boat
+DESCRIPTION:Cliente: Isabel Torres | ActivoID: 4aed93e9-2b19-46bc-9228-455a64aea1cd | Canal: Click&Boat
 END:VEVENT
 END:VCALENDAR
