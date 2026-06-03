@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Cliente con service role key — solo para webhooks y procesos server-to-server sin sesión de usuario
+// Cliente con service role key — para procesos server-to-server sin sesión de usuario (webhooks, crons)
 export function createAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;

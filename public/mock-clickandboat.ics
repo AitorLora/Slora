@@ -1,0 +1,46 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Click&Boat Mock Calendar//ES
+BEGIN:VEVENT
+SUMMARY:Reserva Click&Boat - Maria Santos (CONFLICTO Quicksilver)
+DTSTART:20260620T080000Z
+DTEND:20260620T120000Z
+UID:cnb-quicksilver-maria-20260620@clickandboat.com
+DESCRIPTION:Cliente: Maria Santos | ActivoID: 1fe21667-71c7-4937-b085-3f521fcf49e1 | Canal: Click&Boat
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Reserva Click&Boat - Javier Ruiz (CONFLICTO Barco licencia)
+DTSTART:20260620T100000Z
+DTEND:20260620T140000Z
+UID:cnb-barcolicencia-javier-20260620@clickandboat.com
+DESCRIPTION:Cliente: Javier Ruiz | ActivoID: 489150cf-03be-43f5-beb9-252576e89b28 | Canal: Click&Boat
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Reserva Click&Boat - Pedro Alvarez
+DTSTART:20260620T070000Z
+DTEND:20260620T110000Z
+UID:cnb-barcosinlicencia-pedro-20260620@clickandboat.com
+DESCRIPTION:Cliente: Pedro Alvarez | ActivoID: bcd9cbf9-82fa-40db-a598-efbcad0bc6d1 | Canal: Click&Boat
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Reserva Click&Boat - Laura Mora
+DTSTART:20260620T080000Z
+DTEND:20260620T100000Z
+UID:cnb-moto2323a-laura-20260620@clickandboat.com
+DESCRIPTION:Cliente: Laura Mora | ActivoID: cbc8641b-4910-46df-8128-e4adbc73e0bf | Canal: Click&Boat
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Reserva Click&Boat - Andres Fernandez
+DTSTART:20260620T120000Z
+DTEND:20260620T140000Z
+UID:cnb-moto123ma-andres-20260620@clickandboat.com
+DESCRIPTION:Cliente: Andres Fernandez | ActivoID: 9b495a09-de3b-4cd2-80f8-7f7adf3d1d41 | Canal: Click&Boat
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Reserva Click&Boat - Isabel Torres
+DTSTART:20260620T070000Z
+DTEND:20260620T090000Z
+UID:cnb-motopp3333-isabel-20260620@clickandboat.com
+DESCRIPTION:Cliente: Isabel Torres | ActivoID: 4aed93e9-2b19-46bc-9228-455a64aea1c0 | Canal: Click&Boat
+END:VEVENT
+END:VCALENDAR

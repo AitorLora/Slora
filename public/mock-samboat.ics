@@ -1,0 +1,32 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Samboat Mock Calendar//ES
+BEGIN:VEVENT
+SUMMARY:Reserva SamBoat - Carlos Mendoza
+DTSTART:20260620T070000Z
+DTEND:20260620T110000Z
+UID:sb-quicksilver-carlos-20260620@samboat.com
+DESCRIPTION:Cliente: Carlos Mendoza | ActivoID: 1fe21667-71c7-4937-b085-3f521fcf49e1 | Canal: SamBoat
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Reserva SamBoat - Elena Garcia
+DTSTART:20260620T090000Z
+DTEND:20260620T130000Z
+UID:sb-barcolicencia-elena-20260620@samboat.com
+DESCRIPTION:Cliente: Elena Garcia | ActivoID: 489150cf-03be-43f5-beb9-252576e89b28 | Canal: SamBoat
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Reserva SamBoat - Marta Lopez
+DTSTART:20260620T080000Z
+DTEND:20260620T100000Z
+UID:sb-moto2423d-marta-20260620@samboat.com
+DESCRIPTION:Cliente: Marta Lopez | ActivoID: 3682e5ac-755c-4f1a-a976-52f98154d888 | Canal: SamBoat
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Reserva SamBoat - Ramon Torres
+DTSTART:20260620T070000Z
+DTEND:20260620T150000Z
+UID:sb-barco1234mo-ramon-20260620@samboat.com
+DESCRIPTION:Cliente: Ramon Torres | ActivoID: 4c6e6410-a26a-49c7-8ffe-f8ff297cd3c2 | Canal: SamBoat
+END:VEVENT
+END:VCALENDAR

@@ -234,6 +234,7 @@ export function AppShell({ children, title, subtitle, actions }: AppShellProps) 
           {children}
         </main>
       </div>
+
     </div>
   );
 }

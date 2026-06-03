@@ -148,12 +148,12 @@ export default function FlotaPage() {
 
                 <div className="overflow-x-auto">
                   <div className="grid px-4 py-2 text-[10px] uppercase tracking-[0.06em] font-medium"
-                    style={{ gridTemplateColumns: "14px 110px 90px 120px 50px 90px 140px 120px 36px 32px", gap: "12px", minWidth: "910px", color: "var(--text-3)", background: "var(--muted)", borderBottom: "1px solid var(--border)" }}>
-                    <span /><span>Matrícula</span><span>Tipo</span><span>Modelo</span>
+                    style={{ gridTemplateColumns: "14px 110px 110px 90px 120px 50px 90px 140px 120px 36px 32px", gap: "12px", minWidth: "1020px", color: "var(--text-3)", background: "var(--muted)", borderBottom: "1px solid var(--border)" }}>
+                    <span /><span>Matrícula</span><span>Nombre</span><span>Tipo</span><span>Modelo</span>
                     <span>Cap.</span><span>H. Motor</span><span>Desde servicio</span><span>Estado</span><span /><span />
                   </div>
 
-                  <div style={{ background: "var(--surface)", minWidth: "910px" }}>
+                  <div style={{ background: "var(--surface)", minWidth: "1020px" }}>
                     {activosSoc.map((a, i) => {
                       const badge = ESTADO_BADGE[a.estado as AssetStatus] ?? ESTADO_BADGE.ACTIVO;
                       const horaColor = a.horas_desde_servicio >= 100 ? "var(--red)" : a.horas_desde_servicio >= 50 ? "var(--amber)" : "var(--green)";
@@ -162,9 +162,10 @@ export default function FlotaPage() {
                       return (
                         <div key={a.id}
                           className="grid px-4 py-3 items-center hover:bg-[var(--muted)] transition-colors"
-                          style={{ gridTemplateColumns: "14px 110px 90px 120px 50px 90px 140px 120px 36px 32px", gap: "12px", minWidth: "910px", borderBottom: i < activosSoc.length - 1 ? "1px solid var(--border)" : "none" }}>
+                          style={{ gridTemplateColumns: "14px 110px 110px 90px 120px 50px 90px 140px 120px 36px 32px", gap: "12px", minWidth: "1020px", borderBottom: i < activosSoc.length - 1 ? "1px solid var(--border)" : "none" }}>
                           <span className="w-2 h-2 rounded-full block" style={{ background: ESTADO_DOT[a.estado as AssetStatus] }} />
                           <span className="font-mono text-[12px] font-medium" style={{ color: "var(--navy)" }}>{a.matricula}</span>
+                          <span className="text-[12px] truncate" style={{ color: "var(--foreground)" }}>{a.nombre}</span>
                           <span className="text-[12px]" style={{ color: "var(--text-3)" }}>{a.tipo === "moto" ? "Moto de agua" : "Barco"}</span>
                           <span className="text-[12px]" style={{ color: "var(--text-2)" }}>{a.modelo}</span>
                           <span className="text-[11px]" style={{ color: "var(--text-3)" }}>{a.capacidad ? `${a.capacidad} pax` : "—"}</span>

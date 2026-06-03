@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/update-states",
+      "schedule": "*/5 9-21 * * *"
+    },
+    {
+      "path": "/api/cron/sync-ical",
+      "schedule": "*/10 * * * *"
+    }
+  ]
+}

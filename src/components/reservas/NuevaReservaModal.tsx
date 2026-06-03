@@ -47,12 +47,19 @@ function categoriaBarco(a: { licencia?: boolean; capacidad?: number }): BarcoCat
   return "sin_licencia_6";
 }
 
-function hoy() { return new Date().toISOString().split("T")[0]; }
+function hoy() {
+  // Devuelve la fecha local en España, no en UTC.
+  // Sin esto, a las 23:xx España (= 21:xx UTC) el date-picker bloquea "hoy" como pasado.
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid" }).format(new Date());
+}
 function ahora() {
   const d = new Date();
-  const h = d.getHours().toString().padStart(2, "0");
-  const m = d.getMinutes() >= 30 ? "30" : "00";
-  return `${h}:${m}`;
+  const h = d.getHours();
+  const m = d.getMinutes() >= 30 ? 30 : 0;
+  // La operativa es 09:00–21:00. Fuera de ese horario, la salida por defecto es 09:00
+  // (evita que el selector arranque en una hora que no se puede ajustar).
+  if (h < 9 || h > 20) return "09:00";
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }
 
 export function NuevaReservaModal({ open, onClose, onGuardar, initialValues }: Props) {
@@ -118,6 +125,11 @@ export function NuevaReservaModal({ open, onClose, onGuardar, initialValues }: P
     });
   }, [open, fecha]);
 
+  // Limpia el error de guardado al ajustar hora/fecha/duración (p. ej. tras corregir una hora pasada)
+  useEffect(() => {
+    setError("");
+  }, [hora, fecha, duracion]);
+
   if (!open) return null;
 
   const disponibles = (t: "moto" | "barco", cat?: BarcoCategoria) =>
@@ -163,11 +175,21 @@ export function NuevaReservaModal({ open, onClose, onGuardar, initialValues }: P
     const minFin = minInicio + (HORAS_CONSUMIDAS[duracion] ?? 4) * 60;
     if (minFin > 21 * 60)
       return `Esta reserva terminaría después de las 21:00. Elige una hora anterior.`;
+    // Si la reserva es para hoy, la hora no puede haber pasado ya (hora de España).
+    // Mismo criterio que el servidor en crearReserva(): así no se llega al paso 5 con un error.
+    if (fecha === hoy()) {
+      const horaEspana = new Intl.DateTimeFormat("en-US", {
+        timeZone: "Europe/Madrid", hour: "2-digit", minute: "2-digit", hour12: false,
+      }).format(new Date());
+      const [nh, nm] = horaEspana.split(":").map(Number);
+      if (minInicio < nh * 60 + nm)
+        return `Esa hora ya ha pasado. Elige una hora posterior.`;
+    }
     return "";
   })();
 
   const puedeAvanzar = (() => {
-    if (paso === 1) return tipo !== null;
+    if (paso === 1) return tipo !== null && disponibles(tipo).length > 0;
     if (paso === 2) return tipo === "moto" ? cantidad >= 1 : categoria !== null;
     if (paso === 3) return duracion !== "" && fecha !== "" && suficientesActivos && errorHorario === "";
     if (paso === 4) return cliente.trim().length > 0;
@@ -255,6 +277,11 @@ export function NuevaReservaModal({ open, onClose, onGuardar, initialValues }: P
                     </button>
                   ))}
                 </div>
+                {tipo !== null && disponibles(tipo).length === 0 && (
+                  <p className="text-[12px] mt-3 text-center font-medium" style={{ color: "var(--red-text)" }}>
+                    No hay {tipo === "moto" ? "motos" : "barcos"} disponibles en este momento
+                  </p>
+                )}
               </div>
             </div>
           )}

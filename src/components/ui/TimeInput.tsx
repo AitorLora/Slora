@@ -15,6 +15,7 @@ export function TimeInput({ value, onChange }: TimeInputProps) {
   }
 
   function stepH(dir: 1 | -1) {
+    if (h < 8 || h > 22) { emit(Math.min(22, Math.max(8, h)), m); return; }
     const next = h + dir;
     if (next < 8 || next > 22) return;
     emit(next, m);

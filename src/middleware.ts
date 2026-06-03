@@ -36,8 +36,11 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // Webhooks se autentican con x-webhook-secret, no con sesión de usuario
-  if (pathname.startsWith("/api/webhooks/")) {
+  // Webhooks (x-webhook-secret) y crons (CRON_SECRET) se autentican sin sesión de usuario
+  if (
+    pathname.startsWith("/api/webhooks/") ||
+    pathname.startsWith("/api/cron/")
+  ) {
     return supabaseResponse;
   }
 

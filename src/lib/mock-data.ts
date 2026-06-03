@@ -82,9 +82,13 @@ export const TARIFAS_BARCO: Record<BarcoCategoria, TarifaBarco> = {
 export const DURACIONES_BARCO = ["Medio día", "Día completo"];
 
 export const FUENTES = [
-  "Click and Boat",
-  "Sandboat",
   "Manual",
+  "Teléfono",
+  "WhatsApp",
+  "Directo",
+  "Airbnb",
+  "GetYourGuide",
+  "Viator",
 ];
 
 export const assets: Asset[] = [
