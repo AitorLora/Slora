@@ -12,16 +12,12 @@ const withPWA = withPWAInit({
     document: "/offline.html",
   },
   workboxOptions: {
-    // Elimina el caché manual antiguo (slora-v2) al activar el nuevo SW
+    // Elimina el caché manual antiguo (slora-v2) al activar el nuevo SW.
+    // NO pasamos runtimeCaching: usamos los defaults de next-pwa, que cachean
+    // navegación, chunks, RSC, imágenes y fuentes (necesario para offline).
     cleanupOutdatedCaches: true,
     skipWaiting: true,
     clientsClaim: true,
-    runtimeCaching: [
-      {
-        urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-        handler: "NetworkOnly",
-      },
-    ],
   },
 });
 
