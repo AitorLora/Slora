@@ -6,6 +6,8 @@ import { NuevoActivoModal } from "@/components/flota/NuevoActivoModal";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { createClient } from "@/lib/supabase/client";
 import { marcarRevision, crearActivo, eliminarActivo } from "./actions";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { cacheGet } from "@/lib/offline-db";
 
 type AssetStatus = "ACTIVO" | "ALERTA" | "MANTENIMIENTO";
 type AssetType = "moto" | "barco";
@@ -30,8 +32,20 @@ export default function FlotaPage() {
   const [errorCarga, setErrorCarga]     = useState("");
   const [tipoFiltro, setTipoFiltro]     = useState<AssetType | "">("");
   const [estadoFiltro, setEstadoFiltro] = useState<AssetStatus | "">("");
+  const online = useOnlineStatus();
+
   async function cargar() {
     setErrorCarga("");
+    if (!online) {
+      const [cachedActivos, cachedSociedades] = await Promise.all([
+        cacheGet<any[]>("activos"),
+        cacheGet<any[]>("sociedades"),
+      ]);
+      setActivos(cachedActivos ?? []);
+      setSociedades((cachedSociedades ?? []) as { id: string; nombre: string }[]);
+      setLoading(false);
+      return;
+    }
     try {
       const supabase = createClient();
       const [{ data: a, error: e1 }, { data: s, error: e2 }] = await Promise.all([
@@ -49,7 +63,7 @@ export default function FlotaPage() {
     }
   }
 
-  useEffect(() => { cargar(); }, []);
+  useEffect(() => { cargar(); }, [online]);
 
   useEffect(() => {
     const supabase = createClient();

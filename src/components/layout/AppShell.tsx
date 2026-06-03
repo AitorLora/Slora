@@ -6,8 +6,10 @@ import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import {
-  LayoutDashboard, CalendarCheck, Anchor, Calculator, Building2, BarChart3, LogOut, PanelLeftClose, PanelLeftOpen, Bell, FileText, MoreHorizontal,
+  LayoutDashboard, CalendarCheck, Anchor, Calculator, Building2, BarChart3, LogOut, PanelLeftClose, PanelLeftOpen, Bell, FileText, MoreHorizontal, WifiOff,
 } from "lucide-react";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { cacheSet } from "@/lib/offline-db";
 
 const navItems = [
   { label: "Dashboard",   href: "/dashboard",   Icon: LayoutDashboard },
@@ -22,7 +24,7 @@ const BOTTOM_NAV = [
   { label: "Dashboard", href: "/dashboard",   Icon: LayoutDashboard },
   { label: "Reservas",  href: "/reservas",    Icon: CalendarCheck },
   { label: "Flota",     href: "/flota",       Icon: Anchor },
-  { label: "Contratos", href: "/presupuesto", Icon: FileText },
+  { label: "Simulación", href: "/presupuesto", Icon: FileText },
 ] as const;
 
 interface AppShellProps {
@@ -38,6 +40,7 @@ export function AppShell({ children, title, subtitle, actions }: AppShellProps) 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
+  const online = useOnlineStatus();
 
   // Cierra el menú móvil al cambiar de ruta
   useEffect(() => { setMobileOpen(false); }, [pathname]);
@@ -76,6 +79,20 @@ export function AppShell({ children, title, subtitle, actions }: AppShellProps) 
 
     return () => { supabase.removeChannel(channel); };
   }, []);
+
+  // Pre-carga todos los datasets clave en IndexedDB cuando hay conexión
+  useEffect(() => {
+    if (!online) return;
+    const supabase = createClient();
+    Promise.all([
+      supabase.from("activos").select("*").order("sociedad_id").limit(200)
+        .then(({ data }) => data && cacheSet("activos", data)),
+      supabase.from("sociedades").select("*")
+        .then(({ data }) => data && cacheSet("sociedades", data)),
+      supabase.from("reservas").select("*").order("fecha_inicio", { ascending: false }).limit(500)
+        .then(({ data }) => data && cacheSet("reservas", data)),
+    ]).catch(() => {/* silencioso */});
+  }, [online]);
 
   async function handleLogout() {
     const supabase = createClient();
@@ -268,6 +285,15 @@ export function AppShell({ children, title, subtitle, actions }: AppShellProps) 
           )}
         </header>
 
+        {/* Banner offline desktop */}
+        {!online && (
+          <div className="flex items-center gap-2 px-6 py-2 text-[12px] font-medium print:hidden"
+            style={{ background: "#FEF3C7", color: "#92400E", borderBottom: "1px solid #FDE68A" }}>
+            <WifiOff size={13} strokeWidth={2} />
+            <span>Sin conexión — mostrando datos en caché</span>
+          </div>
+        )}
+
         {/* Contenido desktop */}
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           {children}
@@ -309,6 +335,15 @@ export function AppShell({ children, title, subtitle, actions }: AppShellProps) 
             </button>
           </div>
         </header>
+
+        {/* Banner offline móvil */}
+        {!online && (
+          <div className="flex items-center gap-2 px-4 py-2 text-[12px] font-medium"
+            style={{ background: "#FEF3C7", color: "#92400E", borderBottom: "1px solid #FDE68A" }}>
+            <WifiOff size={13} strokeWidth={2} />
+            <span>Sin conexión — datos en caché</span>
+          </div>
+        )}
 
         {/* Título de sección (prop `title`) */}
         <div className="px-4 pt-5 pb-2">

@@ -7,6 +7,8 @@ import {
   type Booking, type BarcoCategoria,
 } from "@/lib/mock-data";
 import { TimeInput } from "@/components/ui/TimeInput";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { cacheGet, cacheSet } from "@/lib/offline-db";
 
 type Paso = 1 | 2 | 3 | 4 | 5;
 
@@ -63,6 +65,7 @@ function ahora() {
 }
 
 export function NuevaReservaModal({ open, onClose, onGuardar, initialValues }: Props) {
+  const online = useOnlineStatus();
   const [activos, setActivos]           = useState<ActivoDB[]>([]);
   // Franjas ya ocupadas en la fecha (minutos desde medianoche), para detectar solape por hora
   const [reservasFecha, setReservasFecha] = useState<{ activo_id: string; inicioMin: number; finMin: number }[]>([]);
@@ -79,7 +82,7 @@ export function NuevaReservaModal({ open, onClose, onGuardar, initialValues }: P
   const [guardando, setGuardando] = useState(false);
   const [error, setError]         = useState("");
 
-  // Carga activos y sociedades al abrir
+  // Carga activos y sociedades al abrir (online: Supabase + caché; offline: IndexedDB)
   useEffect(() => {
     if (!open) return;
     const iv = initialValues ?? {};
@@ -92,6 +95,27 @@ export function NuevaReservaModal({ open, onClose, onGuardar, initialValues }: P
     setCliente("");
     setHora(iv.hora ?? ahora());
     setFecha(iv.fecha ?? hoy());
+    setError("");
+
+    if (!online) {
+      Promise.all([
+        cacheGet<any[]>("activos"),
+        cacheGet<{ id: string; nombre: string }[]>("sociedades"),
+      ]).then(([cachedActivos, cachedSoc]) => {
+        if (!cachedActivos?.length) {
+          setError("Sin conexión y sin datos en caché. Abre el modal con conexión al menos una vez.");
+          return;
+        }
+        setActivos(cachedActivos.map(act => ({
+          ...act,
+          categoria: act.tipo === "barco" ? categoriaBarco(act) : undefined,
+        })));
+        setSociedades(cachedSoc ?? []);
+      }).catch(() => {
+        setError("Error al leer los datos sin conexión.");
+      });
+      return;
+    }
 
     import("@/lib/supabase/client").then(({ createClient }) => {
       const supabase = createClient();
@@ -105,30 +129,47 @@ export function NuevaReservaModal({ open, onClose, onGuardar, initialValues }: P
         }));
         setActivos(conCategoria);
         setSociedades(s ?? []);
+        // Actualizar caché para uso offline futuro
+        cacheSet("activos", a ?? []);
+        cacheSet("sociedades", s ?? []);
       }).catch(() => {
         setError("Error al cargar los activos. Cierra el modal y vuelve a intentarlo.");
       });
     });
-  }, [open]);
+  }, [open, online]);
 
-  // Recarga las franjas ocupadas cuando cambia la fecha
+  // Recarga las franjas ocupadas cuando cambia la fecha (offline: usa caché de reservas)
   useEffect(() => {
     if (!open || !fecha) return;
+
+    function toSlots(rows: any[]) {
+      return rows.map((r: any) => {
+        const [hh, mm] = (r.hora ?? "09:00").split(":").map(Number);
+        const inicioMin = hh * 60 + mm;
+        return { activo_id: r.activo_id, inicioMin, finMin: inicioMin + (r.horas_consumidas ?? 4) * 60 };
+      });
+    }
+
+    if (!online) {
+      cacheGet<any[]>("reservas").then(cached => {
+        const del_dia = (cached ?? []).filter(r =>
+          String(r.fecha ?? "").slice(0, 10) === fecha &&
+          ["pendiente", "confirmada", "en_curso"].includes(r.estado)
+        );
+        setReservasFecha(toSlots(del_dia));
+      });
+      return;
+    }
+
     import("@/lib/supabase/client").then(({ createClient }) => {
       createClient()
         .from("reservas")
         .select("activo_id, hora, horas_consumidas")
         .eq("fecha", fecha)
         .in("estado", ["pendiente", "confirmada", "en_curso"])
-        .then(({ data }) => {
-          setReservasFecha((data ?? []).map((r: any) => {
-            const [hh, mm] = (r.hora ?? "09:00").split(":").map(Number);
-            const inicioMin = hh * 60 + mm;
-            return { activo_id: r.activo_id, inicioMin, finMin: inicioMin + (r.horas_consumidas ?? 4) * 60 };
-          }));
-        });
+        .then(({ data }) => setReservasFecha(toSlots(data ?? [])));
     });
-  }, [open, fecha]);
+  }, [open, fecha, online]);
 
   // Limpia el error de guardado al ajustar hora/fecha/duración (p. ej. tras corregir una hora pasada)
   useEffect(() => {
@@ -264,11 +305,19 @@ export function NuevaReservaModal({ open, onClose, onGuardar, initialValues }: P
         <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "var(--border)" }}>
           <div>
             <p className="text-[15px] font-semibold" style={{ color: "var(--foreground)" }}>Nueva reserva</p>
-            <div className="flex gap-1 mt-1.5">
-              {[1,2,3,4,5].map(n => (
-                <div key={n} className="h-1 rounded-full transition-all"
-                  style={{ width: n <= paso ? "20px" : "8px", background: n <= paso ? "var(--blue)" : "var(--border)" }} />
-              ))}
+            <div className="flex items-center gap-2 mt-1.5">
+              <div className="flex gap-1">
+                {[1,2,3,4,5].map(n => (
+                  <div key={n} className="h-1 rounded-full transition-all"
+                    style={{ width: n <= paso ? "20px" : "8px", background: n <= paso ? "var(--blue)" : "var(--border)" }} />
+                ))}
+              </div>
+              {!online && (
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                  style={{ background: "#FEF3C7", color: "#92400E" }}>
+                  Sin conexión · Caché local
+                </span>
+              )}
             </div>
           </div>
           <button onClick={onClose} className="text-[20px] leading-none px-2 py-1 rounded hover:bg-[var(--muted)]" style={{ color: "var(--text-3)" }}>×</button>
