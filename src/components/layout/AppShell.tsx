@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import {
-  LayoutDashboard, CalendarCheck, Anchor, Calculator, Building2, BarChart3, LogOut, PanelLeftClose, PanelLeftOpen,
+  LayoutDashboard, CalendarCheck, Anchor, Calculator, Building2, BarChart3, LogOut, PanelLeftClose, PanelLeftOpen, FileText, MoreHorizontal,
 } from "lucide-react";
 
 const navItems = [
@@ -17,6 +17,13 @@ const navItems = [
   { label: "Sociedades",  href: "/sociedades",  Icon: Building2 },
   { label: "Reportes",    href: "/reportes",    Icon: BarChart3 },
 ];
+
+const BOTTOM_NAV = [
+  { label: "Dashboard", href: "/dashboard",   Icon: LayoutDashboard },
+  { label: "Reservas",  href: "/reservas",    Icon: CalendarCheck },
+  { label: "Flota",     href: "/flota",       Icon: Anchor },
+  { label: "Contratos", href: "/presupuesto", Icon: FileText },
+] as const;
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -229,9 +236,43 @@ export function AppShell({ children, title, subtitle, actions }: AppShellProps) 
         </header>
 
         {/* Contenido */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6" style={{ paddingBottom: "calc(1rem + 4rem)" }}>
           {children}
         </main>
+
+        {/* ── Bottom nav — mobile only ── */}
+        <nav
+          className="lg:hidden flex-shrink-0 flex items-stretch border-t print:hidden"
+          style={{
+            background: "var(--surface)",
+            borderColor: "var(--border)",
+            paddingBottom: "env(safe-area-inset-bottom)",
+          }}
+        >
+          {BOTTOM_NAV.map(({ label, href, Icon }) => {
+            const isActive = pathname === href || pathname.startsWith(href + "/");
+            return (
+              <Link
+                key={href}
+                href={href}
+                className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors"
+                style={{ color: isActive ? "var(--navy)" : "var(--text-3)" }}
+              >
+                <Icon size={20} strokeWidth={isActive ? 2.2 : 1.6} />
+                <span>{label}</span>
+              </Link>
+            );
+          })}
+          <button
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors"
+            style={{ color: "var(--text-3)", background: "transparent", border: "none", cursor: "pointer" }}
+            onClick={() => setMobileOpen(true)}
+            aria-label="Más opciones"
+          >
+            <MoreHorizontal size={20} strokeWidth={1.6} />
+            <span>Más</span>
+          </button>
+        </nav>
       </div>
 
     </div>
