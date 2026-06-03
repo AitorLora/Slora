@@ -47,3 +47,13 @@ next-env.d.ts
 /public/workbox-*.js.map
 /public/swe-worker-*.js
 /public/fallback-*.js
+
+# OpenNext
+.open-next
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+
+!.env.example
