@@ -1,0 +1,14 @@
+{
+  "name": "slora-cron",
+  "main": "index.ts",
+  "compatibility_date": "2025-03-25",
+  "vars": {
+    "TARGET_URL": "https://slora.aitorlora57.workers.dev"
+  },
+  "triggers": {
+    "crons": ["*/5 * * * *", "*/10 * * * *"]
+  },
+  "observability": {
+    "enabled": true
+  }
+}
