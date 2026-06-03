@@ -25,8 +25,19 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
   const { pathname } = request.nextUrl;
+
+  // Archivos PWA: deben servirse sin auth (el SW no se puede registrar tras un redirect)
+  if (
+    pathname === "/sw.js" ||
+    pathname === "/manifest.json" ||
+    pathname === "/offline.html" ||
+    /^\/(workbox|swe-worker|fallback)-[^/]+\.js$/.test(pathname)
+  ) {
+    return supabaseResponse;
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
 
   if (pathname === "/login" && user) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
