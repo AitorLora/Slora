@@ -61,20 +61,27 @@ export async function GET(request: Request) {
     await supabase.from("reservas").update({ estado: "completada" }).in("id", toCompletada);
   }
 
-  // Auto-vencimiento: reservas externas pendientes (id_externo no nulo) con fecha pasada que
-  // nadie atendió → se cancelan. Se reutiliza 'cancelada' (ya en el CHECK constraint de la DB).
+  // Auto-vencimiento: cualquier reserva pendiente (externa o Manual) cuyo horario ya pasó y
+  // nadie atendió → se cancela. Incluye las de hoy cuya hora de fin ya terminó, no solo días
+  // anteriores. Se reutiliza 'cancelada' (ya en el CHECK constraint de la DB).
   const { data: vencidas } = await supabase
     .from("reservas")
-    .select("id")
+    .select("id, fecha, hora, horas_consumidas")
     .eq("estado", "pendiente")
-    .not("id_externo", "is", null)
-    .lt("fecha", todaySpain);
+    .lte("fecha", todaySpain);
 
-  const caducadas = vencidas?.map(r => r.id) ?? [];
+  const caducadas = (vencidas ?? [])
+    .filter(r => {
+      if (r.fecha < todaySpain) return true;            // día anterior → vencida
+      const [rH, rM]  = (r.hora ?? "09:00").split(":").map(Number);
+      const endMins   = rH * 60 + rM + (r.horas_consumidas ?? 4) * 60;
+      return endMins <= nowMins;                          // hoy, pero su franja ya terminó
+    })
+    .map(r => r.id);
   if (caducadas.length > 0) {
     await supabase
       .from("reservas")
-      .update({ estado: "cancelada", notas: "Caducada automáticamente: pendiente externa no atendida" })
+      .update({ estado: "cancelada", notas: "Caducada automáticamente: pendiente no atendida" })
       .in("id", caducadas);
   }
 

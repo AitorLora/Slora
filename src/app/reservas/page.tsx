@@ -10,6 +10,7 @@ import type { BarcoCategoria } from "@/lib/mock-data";
 import { Clock, CalendarDays, Search, ChevronRight, Anchor } from "lucide-react";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { cacheGet, cacheSet, queueAdd, queueGetAll, queueRemove } from "@/lib/offline-db";
+import { estadoEfectivo } from "@/lib/estado-reserva";
 
 const ESTADO_STYLE: Record<string, { label: string; color: string; bg: string }> = {
   pendiente:  { label: "Pendiente",  color: "var(--amber-text)", bg: "var(--amber-bg)" },
@@ -21,7 +22,7 @@ const ESTADO_STYLE: Record<string, { label: string; color: string; bg: string }>
   conflicto:  { label: "Conflicto",  color: "var(--red-text)",   bg: "var(--red-bg)" },
 };
 
-const ESTADOS = ["pendiente", "confirmada", "en_curso", "completada", "cancelada"];
+const ESTADOS = ["confirmada", "en_curso", "completada", "cancelada"];
 
 export default function ReservasPage() {
   const [reservas, setReservas]         = useState<any[]>([]);
@@ -32,13 +33,21 @@ export default function ReservasPage() {
   const [busqueda, setBusqueda]         = useState("");
   const [estadoFiltro, setEstadoFiltro]     = useState("");
   const [sociedadFiltro, setSociedadFiltro] = useState("");
-  const [menuAbierto, setMenuAbierto]   = useState<number | null>(null);
+  const [menuAbierto, setMenuAbierto]   = useState<{ id: number; top: number; left: number } | null>(null);
   const [confirmar, setConfirmar]       = useState<{ id: number; cliente: string; accion?: "cancelar" } | null>(null);
   const [errorCarga, setErrorCarga]     = useState("");
   const [accionando, setAccionando]     = useState<Set<number>>(new Set());
   const [tabActivo, setTabActivo]       = useState<"todas" | "pendientes">("todas");
   const [syncPendiente, setSyncPendiente] = useState(0);
+  const [, setTick] = useState(0);
   const online = useOnlineStatus();
+
+  // Refresca el estado derivado (Confirmada → En curso → Completada) cada minuto
+  // sin necesidad de recargar ni esperar al cron.
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   async function cargar(isOnline = true) {
     try {
@@ -343,7 +352,8 @@ export default function ReservasPage() {
 
               <div style={{ background: "var(--surface)", minWidth: "680px" }}>
                 {ordenadas.map((r, i) => {
-                  const est            = ESTADO_STYLE[r.estado] ?? ESTADO_STYLE.pendiente;
+                  const estadoView     = estadoEfectivo(r);
+                  const est            = ESTADO_STYLE[estadoView] ?? ESTADO_STYLE.pendiente;
                   const fecha          = r.fecha ? new Date(r.fecha + "T12:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
                   const esExtPendiente = Boolean(r.id_externo && r.estado === "pendiente");
                   const dispResult     = esExtPendiente ? estaDisponible(r) : { ok: true as const };
@@ -417,43 +427,51 @@ export default function ReservasPage() {
                         </span>
 
                         <div className="relative">
-                          {r.estado === "cancelada" || esExtPendiente ? (
+                          {esExtPendiente ? (
                             <span className="flex items-center text-[11px] font-medium px-2.5 py-1 rounded-full"
                               style={{ color: est.color, background: est.bg }}>
                               {est.label}
                             </span>
                           ) : (
                             <button
-                              onClick={() => setMenuAbierto(menuAbierto === r.id ? null : r.id)}
+                              onClick={(ev) => {
+                                if (menuAbierto?.id === r.id) { setMenuAbierto(null); return; }
+                                const rect = ev.currentTarget.getBoundingClientRect();
+                                setMenuAbierto({ id: r.id, top: rect.bottom + 4, left: rect.right });
+                              }}
                               className="flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full w-full justify-between"
                               style={{ color: est.color, background: est.bg }}>
                               <span>{est.label}</span>
                               <span>▾</span>
                             </button>
                           )}
-                          {menuAbierto === r.id && (
-                            <div className="absolute right-0 top-[calc(100%+4px)] rounded-lg border overflow-hidden z-20 min-w-[130px]"
-                              style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}>
-                              {ESTADOS.map(e => (
-                                <button key={e} onClick={async () => {
-                                  setMenuAbierto(null);
-                                  if (e === "cancelada") {
-                                    setConfirmar({ id: r.id, cliente: r.cliente, accion: "cancelar" });
-                                    return;
-                                  }
-                                  try {
-                                    await cambiarEstadoReserva(r.id, e);
-                                    cargar();
-                                  } catch {
-                                    setErrorCarga("Error al cambiar el estado.");
-                                  }
-                                }}
-                                  className="w-full text-left px-3 py-2 text-[12px] flex items-center gap-2 hover:bg-[var(--muted)]"
-                                  style={{ color: "var(--foreground)" }}>
-                                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: ESTADO_STYLE[e]?.color }} />
-                                  {ESTADO_STYLE[e]?.label}
-                                </button>
-                              ))}
+                          {menuAbierto && menuAbierto.id === r.id && (
+                            <div className="fixed rounded-lg border overflow-hidden z-50 min-w-[130px]"
+                              style={{ top: menuAbierto.top, left: menuAbierto.left, transform: "translateX(-100%)", background: "var(--surface)", borderColor: "var(--border)", boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}>
+                              {ESTADOS.map(e => {
+                                const activo = e === estadoView;
+                                return (
+                                  <button key={e} onClick={async () => {
+                                    setMenuAbierto(null);
+                                    if (e === "cancelada") {
+                                      setConfirmar({ id: r.id, cliente: r.cliente, accion: "cancelar" });
+                                      return;
+                                    }
+                                    try {
+                                      await cambiarEstadoReserva(r.id, e);
+                                      cargar();
+                                    } catch {
+                                      setErrorCarga("Error al cambiar el estado.");
+                                    }
+                                  }}
+                                    className="w-full text-left px-3 py-2 text-[12px] flex items-center gap-2 hover:bg-[var(--muted)]"
+                                    style={{ color: "var(--foreground)", background: activo ? "var(--muted)" : "transparent", fontWeight: activo ? 600 : 400 }}>
+                                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: ESTADO_STYLE[e]?.color }} />
+                                    {ESTADO_STYLE[e]?.label}
+                                    {activo && <span className="ml-auto text-[10px]" style={{ color: "var(--text-3)" }}>actual</span>}
+                                  </button>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
@@ -604,7 +622,7 @@ export default function ReservasPage() {
                 const showHeader = group !== lastGroup;
                 if (showHeader) lastGroup = group;
 
-                const est            = ESTADO_STYLE[r.estado] ?? ESTADO_STYLE.pendiente;
+                const est            = ESTADO_STYLE[estadoEfectivo(r)] ?? ESTADO_STYLE.pendiente;
                 const fecha          = r.fecha ? new Date(r.fecha + "T12:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
                 const isExtPendiente = esPendienteExterna(r);
                 const dispResult     = isExtPendiente ? estaDisponible(r) : { ok: true as const };

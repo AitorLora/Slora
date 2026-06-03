@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/update-states",
-      "schedule": "*/5 9-21 * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/sync-ical",
