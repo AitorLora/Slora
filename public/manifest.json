@@ -1,0 +1,13 @@
+{
+  "name": "Slora Nautic",
+  "short_name": "Slora",
+  "description": "Gestión de flota náutica",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0A2540",
+  "theme_color": "#0A2540",
+  "icons": [
+    { "src": "/favicon.ico", "sizes": "48x48", "type": "image/x-icon" }
+  ]
+}
