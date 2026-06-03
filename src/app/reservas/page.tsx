@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { cambiarEstadoReserva, eliminarReserva, crearReserva, confirmarReservaExterna, rechazarReservaExterna } from "./actions";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import type { BarcoCategoria } from "@/lib/mock-data";
+import { Clock, CalendarDays, Search, ChevronRight, Anchor } from "lucide-react";
 
 const ESTADO_STYLE: Record<string, { label: string; color: string; bg: string }> = {
   pendiente:  { label: "Pendiente",  color: "var(--amber-text)", bg: "var(--amber-bg)" },
@@ -33,6 +34,7 @@ export default function ReservasPage() {
   const [confirmar, setConfirmar]       = useState<{ id: number; cliente: string; accion?: "cancelar" } | null>(null);
   const [errorCarga, setErrorCarga]     = useState("");
   const [accionando, setAccionando]     = useState<Set<number>>(new Set());
+  const [tabActivo, setTabActivo]       = useState<"todas" | "pendientes">("todas");
 
   async function cargar() {
     try {
@@ -176,6 +178,16 @@ export default function ReservasPage() {
 
   const conflictos = reservas.filter(r => r.estado === "conflicto").length;
 
+  // Tabs y agrupación por fecha
+  const hoyStr = new Date().toISOString().slice(0, 10);
+  const manaStr = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  function grupoFecha(fecha: string) {
+    const f = String(fecha ?? "").slice(0, 10);
+    return f === hoyStr ? "Hoy" : f === manaStr ? "Mañana" : "Próximas reservas";
+  }
+  const pendientesExternas = ordenadas.filter(esPendienteExterna);
+  const vistaActual = tabActivo === "pendientes" ? pendientesExternas : ordenadas;
+
   const actions = (
     <button
       onClick={() => { setModalInitial(undefined); setModalOpen(true); }}
@@ -208,267 +220,258 @@ export default function ReservasPage() {
         </div>
       )}
 
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <div className="relative flex-1 min-w-[180px]">
-          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[14px]" style={{ color: "var(--text-3)" }}>⌕</span>
-          <input type="text" placeholder="Buscar cliente, activo, canal..."
-            value={busqueda} onChange={e => setBusqueda(e.target.value)}
-            className="w-full pl-8 pr-3 py-2 rounded-lg border text-[13px] outline-none focus:border-[var(--blue)]"
-            style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }} />
+      {/* Filter pills row */}
+      <div className="flex items-center gap-2 mb-3 overflow-x-auto no-scrollbar">
+        {/* Estado pill */}
+        <div className="relative flex-shrink-0">
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none flex-shrink-0">
+            <Clock size={14} style={{ color: "var(--text-3)" }} />
+          </span>
+          <select
+            value={estadoFiltro}
+            onChange={e => setEstadoFiltro(e.target.value)}
+            className="pl-7 pr-3 py-2 rounded-full border text-[12px] outline-none appearance-none cursor-pointer"
+            style={{ borderColor: "var(--border)", background: "var(--surface)", color: estadoFiltro ? "var(--foreground)" : "var(--text-3)" }}
+          >
+            <option value="">Estados</option>
+            {Object.entries(ESTADO_STYLE).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          </select>
         </div>
-        <select value={estadoFiltro} onChange={e => setEstadoFiltro(e.target.value)}
-          className="px-3 py-2 rounded-lg border text-[13px] outline-none cursor-pointer"
-          style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}>
-          <option value="">Todos los estados</option>
-          {Object.entries(ESTADO_STYLE).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-        </select>
-        <select value={sociedadFiltro} onChange={e => setSociedadFiltro(e.target.value)}
-          className="px-3 py-2 rounded-lg border text-[13px] outline-none cursor-pointer"
-          style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}>
-          <option value="">Todas las sociedades</option>
-          {sociedades.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-        </select>
+
+        {/* Sociedad pill */}
+        <div className="relative flex-shrink-0">
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none flex-shrink-0">
+            <CalendarDays size={14} style={{ color: "var(--text-3)" }} />
+          </span>
+          <select
+            value={sociedadFiltro}
+            onChange={e => setSociedadFiltro(e.target.value)}
+            className="pl-7 pr-3 py-2 rounded-full border text-[12px] outline-none appearance-none cursor-pointer"
+            style={{ borderColor: "var(--border)", background: "var(--surface)", color: sociedadFiltro ? "var(--foreground)" : "var(--text-3)" }}
+          >
+            <option value="">Sociedades</option>
+            {sociedades.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+          </select>
+        </div>
+
+        {/* Buscar pill */}
+        <div className="relative flex-1 min-w-[120px]">
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none flex-shrink-0">
+            <Search size={14} style={{ color: "var(--text-3)" }} />
+          </span>
+          <input
+            type="text"
+            placeholder="Buscar..."
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            className="w-full pl-7 pr-3 py-2 rounded-full border text-[12px] outline-none"
+            style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
+          />
+        </div>
       </div>
 
-      {/* Lista */}
+      {/* Tabs */}
+      <div className="flex items-center gap-2 mb-4">
+        <button
+          onClick={() => setTabActivo("todas")}
+          className="px-4 py-1.5 rounded-full text-[13px] font-medium transition-colors"
+          style={{
+            background: tabActivo === "todas" ? "var(--navy)" : "transparent",
+            color: tabActivo === "todas" ? "#FFFFFF" : "var(--text-2)",
+            border: tabActivo === "todas" ? "none" : "1px solid var(--border)",
+          }}
+        >
+          Todas {ordenadas.length}
+        </button>
+        <button
+          onClick={() => setTabActivo("pendientes")}
+          className="px-4 py-1.5 rounded-full text-[13px] font-medium transition-colors"
+          style={{
+            background: tabActivo === "pendientes" ? "var(--navy)" : "transparent",
+            color: tabActivo === "pendientes" ? "#FFFFFF" : "var(--text-2)",
+            border: tabActivo === "pendientes" ? "none" : "1px solid var(--border)",
+          }}
+        >
+          Pendientes {pendientesExternas.length}
+        </button>
+      </div>
+
+      {/* Cards list */}
       {loading ? (
         <div className="text-center py-16" style={{ color: "var(--text-3)" }}>Cargando...</div>
-      ) : filtradas.length === 0 ? (
+      ) : vistaActual.length === 0 ? (
         <div className="text-center py-16" style={{ color: "var(--text-3)" }}>
           <p className="text-3xl mb-3 opacity-40">📋</p>
-          <p>No hay reservas con estos filtros</p>
+          <p>No hay reservas en esta vista</p>
         </div>
       ) : (
-        <div className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--border)" }}>
-          <div className="overflow-x-auto">
-            {/* Cabecera */}
-            <div className="grid px-3 py-1.5 text-[10px] uppercase tracking-[0.06em] font-medium"
-              style={{ gridTemplateColumns: "64px 1.5fr 1.2fr 1fr 1fr 0.9fr 1.1fr 28px", gap: "6px", minWidth: "680px", color: "var(--text-3)", background: "var(--muted)", borderBottom: "1px solid var(--border)" }}>
-              <span>Ingreso</span>
-              <span>Activo</span>
-              <span>Cliente</span>
-              <span>Fecha</span>
-              <span>Duración</span>
-              <span>Canal</span>
-              <span>Estado</span>
-              <span />
-            </div>
+        <div className="max-w-2xl mx-auto">
+          {(() => {
+            let lastGroup = "";
+            return vistaActual.map((r) => {
+              const group = grupoFecha(r.fecha);
+              const showHeader = group !== lastGroup;
+              if (showHeader) lastGroup = group;
 
-            {/* Filas */}
-            <div style={{ background: "var(--surface)", minWidth: "680px" }}>
-              {ordenadas.map((r, i) => {
-                const est              = ESTADO_STYLE[r.estado] ?? ESTADO_STYLE.pendiente;
-                const fecha            = r.fecha ? new Date(r.fecha + "T12:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
-                const esExtPendiente   = Boolean(r.id_externo && r.estado === "pendiente");
-                const dispResult       = esExtPendiente ? estaDisponible(r) : { ok: true as const };
-                const disponible       = dispResult.ok;
-                const conflictoCon     = !dispResult.ok ? dispResult.conflictoCon : null;
-                const enProceso        = accionando.has(r.id);
-                const borderLeft       = r.estado === "conflicto"
-                  ? "3px solid var(--red-text)"
-                  : esExtPendiente
-                  ? "3px solid #F59E0B"
-                  : "3px solid transparent";
+              const est = ESTADO_STYLE[r.estado] ?? ESTADO_STYLE.pendiente;
+              const fecha = r.fecha ? new Date(r.fecha + "T12:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
+              const isExtPendiente = esPendienteExterna(r);
+              const dispResult = isExtPendiente ? estaDisponible(r) : { ok: true as const };
+              const disponible = dispResult.ok;
+              const conflictoCon = !dispResult.ok ? dispResult.conflictoCon : null;
+              const enProceso = accionando.has(r.id);
 
-                return (
-                  <div
-                    key={r.id}
-                    className="relative"
-                    style={{ borderBottom: i < ordenadas.length - 1 ? "1px solid var(--border)" : "none" }}>
+              return (
+                <div key={r.id}>
+                  {showHeader && (
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.06em] mb-2 mt-4 first:mt-0"
+                      style={{ color: "var(--text-3)" }}>
+                      {group}
+                    </p>
+                  )}
 
-                    {/* Fondo pulsante (solo reservas externas pendientes) */}
-                    {esExtPendiente && (
-                      <div
-                        className="absolute inset-0 animate-pulse pointer-events-none"
-                        style={{ background: "rgba(245,158,11,0.07)" }}
-                      />
-                    )}
-
-                    {/* Fila principal */}
+                  {isExtPendiente ? (
+                    /* External pending card */
                     <div
-                      className="relative grid px-4 py-2 items-center transition-colors"
+                      className="rounded-xl border mb-3 overflow-hidden"
                       style={{
-                        gridTemplateColumns: "64px 1.5fr 1.2fr 1fr 1fr 0.9fr 1.1fr 28px",
-                        gap: "8px",
-                        borderLeft,
+                        borderColor: "var(--border)",
+                        borderLeft: disponible ? "4px solid var(--green)" : "4px solid var(--red)",
+                        background: "var(--surface)",
+                        boxShadow: "var(--shadow-card)",
                       }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "var(--muted)"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = ""; }}>
+                    >
+                      {/* Card header row */}
+                      <div className="px-4 pt-3 pb-2 flex items-start gap-3">
+                        {/* Icon circle */}
+                        <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+                          style={{ background: disponible ? "var(--green-bg)" : "var(--red-bg)" }}>
+                          <Anchor size={16} style={{ color: disponible ? "var(--green-text)" : "var(--red-text)" }} />
+                        </div>
 
-                      {/* Ingreso */}
-                      <span className="font-mono text-[15px] font-semibold" style={{ color: "var(--foreground)" }}>
-                        {esExtPendiente && r.ingreso_neto === 0
-                          ? <span style={{ color: "var(--text-3)" }}>—</span>
-                          : `€${Number(r.ingreso_neto).toLocaleString("es-ES")}`}
-                      </span>
-
-                      {/* Activo */}
-                      <div className="min-w-0 flex flex-col gap-1">
-                        <span className="font-mono text-[11px] text-white px-1.5 py-0.5 rounded inline-block truncate max-w-full leading-snug" style={{ background: "var(--navy)" }}>
-                          {r.activos?.modelo && r.activos?.matricula
-                            ? `${r.activos.modelo} (${r.activos.matricula})`
-                            : (r.activo_nombre ?? r.activo_id)}
-                        </span>
-                        {(r.activos?.capacidad != null || r.activos?.licencia != null) && (
-                          <div className="flex items-center gap-1 flex-wrap">
-                            {r.activos?.capacidad != null && (
-                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-sm leading-none" style={{ background: "var(--surface-2, #F1F5F9)", color: "var(--text-2)" }}>
-                                {r.activos.capacidad} P
+                        <div className="flex-1 min-w-0">
+                          {/* Asset name + badges top-right */}
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-[14px] font-semibold truncate" style={{ color: "var(--foreground)" }}>
+                              {r.activos?.modelo && r.activos?.matricula
+                                ? `${r.activos.modelo} (${r.activos.matricula})`
+                                : (r.activo_nombre ?? r.activo_id)}
+                            </p>
+                            {/* Badges: estado + licencia */}
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                                style={{ background: est.bg, color: est.color }}>
+                                {est.label}
                               </span>
-                            )}
-                            {r.activos?.licencia != null && (
-                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-sm leading-none" style={{ background: "var(--surface-2, #F1F5F9)", color: "var(--text-2)" }}>
-                                {r.activos.licencia ? "Requiere Licencia" : "Sin Licencia"}
-                              </span>
-                            )}
+                              {r.activos?.licencia === false && (
+                                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border"
+                                  style={{ borderColor: "var(--border)", color: "var(--text-2)", background: "var(--gray-bg)" }}>
+                                  Sin licencia
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        )}
-                        {r.notas && <p className="text-[10px] italic truncate" style={{ color: "var(--text-3)" }}>{r.notas}</p>}
-                      </div>
 
-                      {/* Cliente */}
-                      <span className="text-[13px] font-medium truncate" style={{ color: "var(--foreground)" }}>
-                        {r.cliente}
-                      </span>
+                          {/* Client name */}
+                          <p className="text-[12px] mt-0.5" style={{ color: "var(--text-2)" }}>{r.cliente}</p>
 
-                      {/* Fecha */}
-                      <span className="text-[12px]" style={{ color: "var(--text-3)" }}>{fecha}</span>
-
-                      {/* Duración + hora */}
-                      <div>
-                        <p className="text-[12px] font-medium" style={{ color: "var(--foreground)" }}>{r.duracion}</p>
-                        <p className="text-[11px]" style={{ color: "var(--text-3)" }}>{r.hora}</p>
-                      </div>
-
-                      {/* Canal */}
-                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded truncate inline-block font-semibold"
-                        style={{ background: "var(--muted)", color: "var(--text-2)" }}>
-                        {r.fuente}
-                      </span>
-
-                      {/* Estado */}
-                      <div className="relative">
-                        {r.estado === "cancelada" || esExtPendiente ? (
-                          <span
-                            className="flex items-center text-[11px] font-medium px-2.5 py-1 rounded-full"
-                            style={{ color: est.color, background: est.bg }}>
-                            {est.label}
-                          </span>
-                        ) : (
-                        <button
-                          onClick={() => setMenuAbierto(menuAbierto === r.id ? null : r.id)}
-                          className="flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full w-full justify-between"
-                          style={{ color: est.color, background: est.bg }}>
-                          <span>{est.label}</span>
-                          <span>▾</span>
-                        </button>)}
-                        {menuAbierto === r.id && (
-                          <div className="absolute right-0 top-[calc(100%+4px)] rounded-lg border overflow-hidden z-20 min-w-[130px]"
-                            style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}>
-                            {ESTADOS.map(e => (
-                              <button key={e} onClick={async () => {
-                                setMenuAbierto(null);
-                                if (e === "cancelada") {
-                                  setConfirmar({ id: r.id, cliente: r.cliente, accion: "cancelar" });
-                                  return;
-                                }
-                                try {
-                                  await cambiarEstadoReserva(r.id, e);
-                                  cargar();
-                                } catch {
-                                  setErrorCarga("Error al cambiar el estado.");
-                                }
-                              }}
-                                className="w-full text-left px-3 py-2 text-[12px] flex items-center gap-2 hover:bg-[var(--muted)]"
-                                style={{ color: "var(--foreground)" }}>
-                                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: ESTADO_STYLE[e]?.color }} />
-                                {ESTADO_STYLE[e]?.label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Eliminar */}
-                      <button onClick={() => setConfirmar({ id: r.id, cliente: r.cliente })}
-                        className="w-7 h-7 flex items-center justify-center rounded-lg text-[13px] hover:bg-[var(--red-bg)] transition-colors"
-                        style={{ color: "var(--text-3)" }}
-                        onMouseEnter={e => (e.currentTarget.style.color = "var(--red-text)")}
-                        onMouseLeave={e => (e.currentTarget.style.color = "var(--text-3)")}>
-                        ×
-                      </button>
-                    </div>
-
-                    {/* Sub-banner de validación (solo reservas externas pendientes) */}
-                    {esExtPendiente && (
-                      <div
-                        className="relative px-4 py-1.5 flex items-center justify-between gap-4"
-                        style={{
-                          borderTop:  "1px dashed rgba(245,158,11,0.35)",
-                          background: "rgba(245,158,11,0.04)",
-                          borderLeft,
-                        }}>
-
-                        {/* Indicador de disponibilidad */}
-                        <div className="flex flex-col gap-0.5 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`inline-block w-2 h-2 rounded-full flex-shrink-0${disponible ? " animate-pulse" : ""}`}
-                              style={{ background: disponible ? "#16A34A" : "#DC2626" }}
-                            />
-                            <span className="text-[11px] font-medium" style={{ color: disponible ? "#15803D" : "#B91C1C" }}>
-                              {disponible ? "Disponible" : "No disponible"}
+                          {/* Date + time + channel row */}
+                          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                            <span className="text-[11px]" style={{ color: "var(--text-3)" }}>{fecha}</span>
+                            <span className="text-[11px] font-medium" style={{ color: "var(--foreground)" }}>{r.hora}</span>
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                              style={{ background: "var(--muted)", color: "var(--text-2)" }}>
+                              {r.fuente}
                             </span>
                           </div>
+                        </div>
+                      </div>
+
+                      {/* Conflict/availability sub-banner */}
+                      <div className="px-4 py-2 flex items-center justify-between gap-3 border-t"
+                        style={{ borderColor: "rgba(245,158,11,0.25)", background: "rgba(245,158,11,0.04)" }}>
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${disponible ? "animate-pulse" : ""}`}
+                            style={{ background: disponible ? "var(--green)" : "var(--red)" }} />
+                          <span className="text-[11px] font-medium"
+                            style={{ color: disponible ? "var(--green-text)" : "var(--red-text)" }}>
+                            {disponible ? "Disponible" : "No disponible"}
+                          </span>
                           {!disponible && conflictoCon && (
-                            <p className="text-[10px] pl-4 truncate" style={{ color: "var(--text-3)" }}>
-                              Bloqueada por <span className="font-medium" style={{ color: "var(--foreground)" }}>{conflictoCon.cliente}</span>
+                            <span className="text-[10px]" style={{ color: "var(--text-3)" }}>
+                              · Bloqueada por <span style={{ color: "var(--foreground)", fontWeight: 500 }}>{conflictoCon.cliente}</span>
                               {conflictoCon.fuente ? ` (${conflictoCon.fuente})` : ""} · {conflictoCon.hora}
-                              {conflictoCon.estado !== "pendiente" && (
-                                <span className="ml-1" style={{ color: "#B91C1C" }}>— ya confirmada</span>
-                              )}
-                            </p>
-                          )}
-                          {process.env.NODE_ENV === "development" && (
-                            <span className="text-[9px] opacity-40 pl-4" style={{ color: "var(--text-3)" }}>
-                              f:{String(r.fecha).slice(0,10)} h:{r.hora} hc:{r.horas_consumidas} id_ext:{r.id_externo ? "✓" : "✗"}
                             </span>
                           )}
                         </div>
-
-                        {/* Botones de acción */}
+                        {/* Action buttons */}
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <button
                             onClick={() => handleConfirmarExterna(r.id)}
                             disabled={!disponible || enProceso}
-                            className="px-3 py-1 rounded text-[11px] font-semibold text-white transition-opacity"
+                            className="px-3 py-1 rounded-lg text-[11px] font-semibold border transition-opacity"
                             style={{
-                              background: disponible ? "#16A34A" : "#9CA3AF",
-                              cursor:     disponible && !enProceso ? "pointer" : "not-allowed",
-                              opacity:    enProceso ? 0.5 : 1,
+                              borderColor: disponible ? "var(--green-text)" : "var(--border)",
+                              color: disponible ? "var(--green-text)" : "var(--text-3)",
+                              background: "transparent",
+                              opacity: enProceso ? 0.5 : 1,
+                              cursor: disponible && !enProceso ? "pointer" : "not-allowed",
                             }}>
                             {enProceso ? "…" : "✓ Confirmar"}
                           </button>
                           <button
                             onClick={() => handleRechazarExterna(r.id)}
                             disabled={enProceso}
-                            className="px-3 py-1 rounded text-[11px] font-semibold text-white transition-opacity"
+                            className="px-3 py-1 rounded-lg text-[11px] font-semibold border transition-opacity"
                             style={{
-                              background: "#DC2626",
-                              cursor:     !enProceso ? "pointer" : "not-allowed",
-                              opacity:    enProceso ? 0.5 : 1,
+                              borderColor: "var(--red-text)",
+                              color: "var(--red-text)",
+                              background: "transparent",
+                              opacity: enProceso ? 0.5 : 1,
                             }}>
-                            {enProceso ? "…" : "✕ Rechazar"}
+                            {enProceso ? "…" : "✗ Rechazar"}
                           </button>
                         </div>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+                    </div>
+                  ) : (
+                    /* Compact card for confirmed/upcoming */
+                    <div
+                      className="rounded-xl border mb-2 px-4 py-3 flex items-center gap-3"
+                      style={{
+                        borderColor: "var(--border)",
+                        borderLeft: "4px solid var(--blue)",
+                        background: "var(--surface)",
+                        boxShadow: "var(--shadow-card)",
+                      }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[13px] font-medium truncate" style={{ color: "var(--foreground)" }}>
+                            {r.cliente}
+                          </p>
+                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0"
+                            style={{ background: est.bg, color: est.color }}>
+                            {est.label}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[11px]" style={{ color: "var(--text-3)" }}>{fecha} · {r.hora}</span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                            style={{ background: "var(--muted)", color: "var(--text-2)" }}>{r.fuente}</span>
+                          {r.activos?.licencia === false && (
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full border"
+                              style={{ borderColor: "var(--border)", color: "var(--text-2)" }}>Sin licencia</span>
+                          )}
+                        </div>
+                      </div>
+                      <ChevronRight size={16} style={{ color: "var(--text-3)", flexShrink: 0 }} />
+                    </div>
+                  )}
+                </div>
+              );
+            });
+          })()}
         </div>
       )}
 
