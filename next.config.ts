@@ -10,6 +10,19 @@ const withPWA = withPWAInit({
   fallbacks: {
     document: "/offline.html",
   },
+  workboxOptions: {
+    // Elimina el caché manual antiguo (slora-v2) al activar el nuevo SW
+    additionalManifestEntries: [],
+    cleanupOutdatedCaches: true,
+    skipWaiting: true,
+    clientsClaim: true,
+    runtimeCaching: [
+      {
+        urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+        handler: "NetworkOnly",
+      },
+    ],
+  },
 });
 
 const nextConfig: NextConfig = {
