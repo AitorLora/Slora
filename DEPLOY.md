@@ -145,7 +145,7 @@ los valores. Pasos:
 - [ ] Editar `cron/wrangler.jsonc` → `TARGET_URL` con la nueva URL del worker.
 - [ ] Desplegar el worker de cron + su `CRON_SECRET` (paso 3.5).
 - [ ] Crear/poblar Supabase y ejecutar los 2 SQL (sección 4).
-- [ ] Probar push: `GET /api/push/test?secret=<CRON_SECRET>` tras suscribir un móvil.
+- [ ] Probar push: suscribir un móvil (campana del header) y esperar a que el cron importe una reserva nueva.
 
 Nada de esto incluye claves en el repositorio: todas las claves se introducen a mano en
 cada cuenta (es por seguridad, igual que en Vercel).

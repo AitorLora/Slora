@@ -52,11 +52,6 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // Endpoint de prueba de push: se autentica con CRON_SECRET, no con sesión
-  if (pathname === "/api/push/test") {
-    return supabaseResponse;
-  }
-
   if (!user) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
