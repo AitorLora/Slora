@@ -3,7 +3,7 @@
   "main": "index.ts",
   "compatibility_date": "2025-03-25",
   "vars": {
-    "TARGET_URL": "https://slora.aitorlora57.workers.dev"
+    "TARGET_URL": "https://slora.aitoramarildosolora.workers.dev"
   },
   "triggers": {
     "crons": ["*/5 * * * *", "*/10 * * * *"]
