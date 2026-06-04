@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { sendPushToAll } from "@/lib/push";
 import * as ical from "node-ical";
 
 function toMadrid(date: Date): { fecha: string; hora: string } {
@@ -38,6 +39,7 @@ export async function GET(request: Request) {
   const ya_existian:  string[] = [];
   const bloqueadas:   string[] = []; // slot ya confirmado por otra reserva
   const errores:      string[] = [];
+  const nuevas:       Array<{ cliente: string; activo: string; fecha: string; hora: string; fuente: string }> = [];
 
   for (const feed of FEEDS) {
     let icsText: string;
@@ -152,7 +154,35 @@ export async function GET(request: Request) {
         }
       } else {
         insertados++;
+        nuevas.push({ cliente, activo: activo.nombre, fecha, hora, fuente: feed.fuente });
       }
+    }
+  }
+
+  // ── Notificación push al móvil por cada nueva reserva entrante ──────────────
+  let push_enviadas = 0;
+  if (nuevas.length > 0) {
+    try {
+      if (nuevas.length === 1) {
+        const r = nuevas[0];
+        const { sent } = await sendPushToAll({
+          title: `Nueva reserva · ${r.fuente}`,
+          body: `${r.cliente} — ${r.activo} · ${r.fecha} ${r.hora}`,
+          url: "/reservas",
+          tag: "slora-reserva",
+        });
+        push_enviadas = sent;
+      } else {
+        const { sent } = await sendPushToAll({
+          title: `${nuevas.length} nuevas reservas`,
+          body: nuevas.slice(0, 3).map((r) => `${r.cliente} — ${r.activo}`).join("\n"),
+          url: "/reservas",
+          tag: "slora-reserva",
+        });
+        push_enviadas = sent;
+      }
+    } catch (e: any) {
+      errores.push(`[push] ${e?.message ?? e}`);
     }
   }
 
@@ -163,6 +193,7 @@ export async function GET(request: Request) {
     ya_existian_uids: ya_existian,
     bloqueadas:       bloqueadas.length,
     bloqueadas_uids:  bloqueadas,
+    push_enviadas,
     errores,
     timestamp:        new Date().toISOString(),
   });

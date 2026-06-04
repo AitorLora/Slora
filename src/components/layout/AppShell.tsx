@@ -9,6 +9,7 @@ import {
   LayoutDashboard, CalendarCheck, Anchor, Calculator, Building2, BarChart3, LogOut, PanelLeftClose, PanelLeftOpen, Bell, FileText, MoreHorizontal, WifiOff,
 } from "lucide-react";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { cacheSet } from "@/lib/offline-db";
 
 const navItems = [
@@ -41,6 +42,31 @@ export function AppShell({ children, title, subtitle, actions }: AppShellProps) 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
   const online = useOnlineStatus();
+  const push = usePushNotifications();
+
+  // Click en la campana: gestiona la suscripción a notificaciones push del móvil.
+  async function handleBellClick() {
+    switch (push.state) {
+      case "default":
+        await push.subscribe();
+        break;
+      case "subscribed":
+        if (confirm("¿Desactivar las notificaciones de nuevas reservas en este dispositivo?")) {
+          await push.unsubscribe();
+        }
+        break;
+      case "denied":
+        alert(
+          "Has bloqueado las notificaciones. Actívalas desde los ajustes del navegador (icono del candado junto a la dirección)."
+        );
+        break;
+      case "unsupported":
+        alert(
+          "Para recibir avisos en el iPhone: abre Compartir → «Añadir a pantalla de inicio» y entra desde ese icono. En Android usa Chrome instalando la app."
+        );
+        break;
+    }
+  }
 
   // Cierra el menú móvil al cambiar de ruta
   useEffect(() => { setMobileOpen(false); }, [pathname]);
@@ -317,13 +343,28 @@ export function AppShell({ children, title, subtitle, actions }: AppShellProps) 
           </div>
           {/* Campana + menú */}
           <div className="flex items-center gap-3">
-            <button className="relative p-1.5" aria-label="Notificaciones">
-              <Bell size={20} style={{ color: "var(--foreground)" }} strokeWidth={1.8} />
+            <button
+              className="relative p-1.5"
+              onClick={handleBellClick}
+              aria-label={push.state === "subscribed" ? "Notificaciones activadas" : "Activar notificaciones"}
+              title={push.state === "subscribed" ? "Notificaciones activadas (toca para desactivar)" : "Tocar para activar avisos de reservas"}
+            >
+              <Bell
+                size={20}
+                style={{ color: push.state === "subscribed" ? "var(--blue)" : "var(--foreground)" }}
+                strokeWidth={1.8}
+                fill={push.state === "subscribed" ? "var(--blue)" : "none"}
+              />
+              {/* Badge de reservas pendientes */}
               {notifCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white px-1"
                   style={{ background: "var(--blue)" }}>
                   {notifCount > 9 ? "9+" : notifCount}
                 </span>
+              )}
+              {/* Punto verde: avisos push activos (cuando no hay badge de pendientes) */}
+              {push.state === "subscribed" && notifCount === 0 && (
+                <span className="absolute top-0 right-0 w-2 h-2 rounded-full" style={{ background: "#22C55E" }} />
               )}
             </button>
             <button className="p-1.5" onClick={() => setMobileOpen(true)} aria-label="Abrir menú">
