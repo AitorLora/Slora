@@ -164,21 +164,25 @@ export default function PanelInversorPage({ params }: { params: Promise<{ id: st
               const badge = ESTADO_RESERVA[r.estado] ?? ESTADO_RESERVA.pendiente;
               const fecha = r.fecha ? new Date(r.fecha + "T12:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" }) : "—";
               return (
-                <div key={r.id} className="grid items-center px-4 py-3 border-b last:border-0 hover:bg-[var(--muted)] transition-colors"
-                  style={{ gridTemplateColumns: "1fr 160px 68px 90px", borderColor: "var(--border)", background: "var(--surface)" }}>
-                  <div className="min-w-0 pr-3">
-                    <p className="text-[13px] font-medium truncate" style={{ color: "var(--foreground)" }}>{r.cliente}</p>
-                    <p className="text-[11px]" style={{ color: "var(--text-3)" }}>{fecha} · {r.duracion} · {r.fuente}</p>
+                <div key={r.id} className="px-4 py-3 border-b last:border-0 hover:bg-[var(--muted)] transition-colors"
+                  style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-medium truncate" style={{ color: "var(--foreground)" }}>{r.cliente}</p>
+                      <p className="text-[11px]" style={{ color: "var(--text-3)" }}>{fecha} · {r.duracion} · {r.fuente}</p>
+                    </div>
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 whitespace-nowrap" style={{ color: badge.color, background: badge.bg }}>
+                      {badge.label}
+                    </span>
                   </div>
-                  <span className="font-mono text-[11px] text-white px-1.5 py-0.5 rounded w-fit truncate" style={{ background: "var(--navy)" }}>
-                    {r.activo_nombre ?? r.activo_id}
-                  </span>
-                  <span className="font-mono text-[13px] font-semibold text-right" style={{ color: "var(--foreground)" }}>
-                    €{Number(r.ingreso_neto).toLocaleString("es-ES")}
-                  </span>
-                  <span className="text-[11px] font-medium px-2 py-0.5 rounded-full text-center justify-self-end" style={{ color: badge.color, background: badge.bg }}>
-                    {badge.label}
-                  </span>
+                  <div className="flex items-center justify-between gap-2 mt-2">
+                    <span className="font-mono text-[11px] text-white px-1.5 py-0.5 rounded truncate" style={{ background: "var(--navy)" }}>
+                      {r.activo_nombre ?? r.activo_id}
+                    </span>
+                    <span className="font-mono text-[13px] font-semibold flex-shrink-0" style={{ color: "var(--foreground)" }}>
+                      €{Number(r.ingreso_neto).toLocaleString("es-ES")}
+                    </span>
+                  </div>
                 </div>
               );
             })

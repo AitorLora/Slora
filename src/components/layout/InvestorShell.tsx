@@ -22,47 +22,49 @@ export function InvestorShell({ children, sociedad }: InvestorShellProps) {
 
       {/* Topbar */}
       <header
-        className="flex items-center justify-between px-6 py-3.5 border-b sticky top-0 z-10 print:hidden"
-        style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+        className="flex items-center justify-between gap-2 px-4 sm:px-6 pb-3 border-b sticky top-0 z-10 print:hidden"
+        style={{ background: "var(--surface)", borderColor: "var(--border)", paddingTop: "calc(0.875rem + env(safe-area-inset-top))" }}
       >
-        <div className="flex items-center gap-3">
-          <div>
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="hidden sm:block flex-shrink-0">
             <p className="text-[15px] font-semibold tracking-[-0.3px]" style={{ color: "var(--navy)" }}>
               Slora
             </p>
             <p className="text-[11px]" style={{ color: "var(--text-3)" }}>Puerto del Molinar · Palma</p>
           </div>
-          <div className="w-px h-7 mx-1" style={{ background: "var(--border)" }} />
-          <span
-            className="text-[13px] font-semibold px-2.5 py-1 rounded-lg"
-            style={{ background: "var(--blue-light)", color: "var(--navy)" }}
-          >
-            {sociedad}
-          </span>
-          <span
-            className="text-[10px] font-medium uppercase tracking-[0.07em] px-2 py-0.5 rounded-full"
-            style={{ background: "var(--muted)", color: "var(--text-3)" }}
-          >
-            Portal inversor
-          </span>
+          <div className="hidden sm:block w-px h-7 mx-1 flex-shrink-0" style={{ background: "var(--border)" }} />
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className="text-[13px] font-semibold px-2.5 py-1 rounded-lg truncate"
+              style={{ background: "var(--blue-light)", color: "var(--navy)" }}
+            >
+              {sociedad}
+            </span>
+            <span
+              className="hidden sm:inline-block text-[10px] font-medium uppercase tracking-[0.07em] px-2 py-0.5 rounded-full flex-shrink-0"
+              style={{ background: "var(--muted)", color: "var(--text-3)" }}
+            >
+              Portal inversor
+            </span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11.5px] font-medium transition-colors hover:bg-[var(--muted)]"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-[11.5px] font-medium transition-colors hover:bg-[var(--muted)]"
             style={{ borderColor: "var(--border)", color: "var(--text-2)", background: "var(--surface)" }}
           >
-            ⎙ Imprimir
+            ⎙ <span className="hidden sm:inline">Imprimir</span>
           </button>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11.5px] font-medium transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11.5px] font-medium transition-colors"
             style={{ background: "#EF4444", color: "#fff", border: "1px solid #DC2626" }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#DC2626"; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "#EF4444"; }}
           >
-            ↪ Cerrar sesión
+            ↪ <span className="hidden sm:inline">Cerrar sesión</span>
           </button>
         </div>
       </header>

@@ -332,8 +332,8 @@ export function AppShell({ children, title, subtitle, actions }: AppShellProps) 
 
       <div className="flex lg:hidden flex-col min-h-screen w-full" style={{ background: "var(--background)" }}>
         {/* Mobile header fijo */}
-        <header className="sticky top-0 z-20 flex items-center justify-between px-4 py-3"
-          style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
+        <header className="sticky top-0 z-20 flex items-center justify-between px-4 pb-3"
+          style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)", paddingTop: "calc(0.75rem + env(safe-area-inset-top))" }}>
           {/* Logo */}
           <div>
             <p className="text-[16px] font-semibold tracking-[-0.3px]" style={{ color: "var(--navy)" }}>

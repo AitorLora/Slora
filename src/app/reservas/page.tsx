@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { cambiarEstadoReserva, eliminarReserva, crearReserva, confirmarReservaExterna, rechazarReservaExterna } from "./actions";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import type { BarcoCategoria } from "@/lib/mock-data";
-import { Clock, CalendarDays, Search, ChevronRight, Anchor } from "lucide-react";
+import { Clock, CalendarDays, Search, Anchor } from "lucide-react";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { cacheGet, cacheSet, queueAdd, queueGetAll, queueRemove } from "@/lib/offline-db";
 import { estadoEfectivo } from "@/lib/estado-reserva";
@@ -622,7 +622,8 @@ export default function ReservasPage() {
                 const showHeader = group !== lastGroup;
                 if (showHeader) lastGroup = group;
 
-                const est            = ESTADO_STYLE[estadoEfectivo(r)] ?? ESTADO_STYLE.pendiente;
+                const estadoView     = estadoEfectivo(r);
+                const est            = ESTADO_STYLE[estadoView] ?? ESTADO_STYLE.pendiente;
                 const fecha          = r.fecha ? new Date(r.fecha + "T12:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
                 const isExtPendiente = esPendienteExterna(r);
                 const dispResult     = isExtPendiente ? estaDisponible(r) : { ok: true as const };
@@ -737,16 +738,10 @@ export default function ReservasPage() {
                           boxShadow: "var(--shadow-card)",
                         }}>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-[13px] font-medium truncate" style={{ color: "var(--foreground)" }}>
-                              {r.cliente}
-                            </p>
-                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0"
-                              style={{ background: est.bg, color: est.color }}>
-                              {est.label}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-[13px] font-medium truncate" style={{ color: "var(--foreground)" }}>
+                            {r.cliente}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                             <span className="text-[11px]" style={{ color: "var(--text-3)" }}>{fecha} · {r.hora}</span>
                             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded"
                               style={{ background: "var(--muted)", color: "var(--text-2)" }}>{r.fuente}</span>
@@ -756,7 +751,58 @@ export default function ReservasPage() {
                             )}
                           </div>
                         </div>
-                        <ChevronRight size={16} style={{ color: "var(--text-3)", flexShrink: 0 }} />
+
+                        {/* Estado tocable → menú de cambio de estado / cancelar */}
+                        <div className="relative flex-shrink-0">
+                          <button
+                            onClick={(ev) => {
+                              if (menuAbierto?.id === r.id) { setMenuAbierto(null); return; }
+                              const rect = ev.currentTarget.getBoundingClientRect();
+                              setMenuAbierto({ id: r.id, top: rect.bottom + 4, left: rect.right });
+                            }}
+                            className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full"
+                            style={{ background: est.bg, color: est.color }}>
+                            <span>{est.label}</span>
+                            <span>▾</span>
+                          </button>
+                          {menuAbierto && menuAbierto.id === r.id && (
+                            <div className="fixed rounded-lg border overflow-hidden z-50 min-w-[150px]"
+                              style={{ top: menuAbierto.top, left: menuAbierto.left, transform: "translateX(-100%)", background: "var(--surface)", borderColor: "var(--border)", boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}>
+                              {ESTADOS.map(e => {
+                                const activo = e === estadoView;
+                                return (
+                                  <button key={e} onClick={async () => {
+                                    setMenuAbierto(null);
+                                    if (e === "cancelada") {
+                                      setConfirmar({ id: r.id, cliente: r.cliente, accion: "cancelar" });
+                                      return;
+                                    }
+                                    try {
+                                      await cambiarEstadoReserva(r.id, e);
+                                      cargar();
+                                    } catch {
+                                      setErrorCarga("Error al cambiar el estado.");
+                                    }
+                                  }}
+                                    className="w-full text-left px-3 py-2.5 text-[13px] flex items-center gap-2 active:bg-[var(--muted)]"
+                                    style={{ color: "var(--foreground)", background: activo ? "var(--muted)" : "transparent", fontWeight: activo ? 600 : 400 }}>
+                                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: ESTADO_STYLE[e]?.color }} />
+                                    {ESTADO_STYLE[e]?.label}
+                                    {activo && <span className="ml-auto text-[10px]" style={{ color: "var(--text-3)" }}>actual</span>}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Eliminar */}
+                        <button onClick={() => setConfirmar({ id: r.id, cliente: r.cliente })}
+                          aria-label="Eliminar reserva"
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-[16px] flex-shrink-0 active:bg-[var(--red-bg)]"
+                          style={{ color: "var(--text-3)" }}>
+                          ×
+                        </button>
                       </div>
                     )}
                   </div>

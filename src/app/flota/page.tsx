@@ -152,15 +152,72 @@ export default function FlotaPage() {
             const activosSoc = filtrados.filter(a => a.sociedad_id === soc.id);
             if (!activosSoc.length) return null;
             return (
-              <div key={soc.id} className="rounded-xl border" style={{ borderColor: "var(--border)" }}>
-                <div className="flex items-center justify-between px-4 py-3 rounded-t-xl" style={{ background: "var(--navy)" }}>
+              <div key={soc.id} className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--border)" }}>
+                <div className="flex items-center justify-between px-4 py-3" style={{ background: "var(--navy)" }}>
                   <span className="text-[13px] font-semibold text-white">{soc.nombre}</span>
                   <span className="text-[11px]" style={{ color: "#7BAFD4" }}>
                     {activosSoc.length} activo{activosSoc.length !== 1 ? "s" : ""}
                   </span>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* ── Móvil: tarjetas (la llave de mantenimiento va junto a la matrícula) ── */}
+                <div className="lg:hidden" style={{ background: "var(--surface)" }}>
+                  {activosSoc.map((a, i) => {
+                    const badge = ESTADO_BADGE[a.estado as AssetStatus] ?? ESTADO_BADGE.ACTIVO;
+                    const horaColor = a.horas_desde_servicio >= 100 ? "var(--red)" : a.horas_desde_servicio >= 50 ? "var(--amber)" : "var(--green)";
+                    const pct = Math.min((a.horas_desde_servicio / 100) * 100, 100);
+                    const necesitaRevision = a.estado === "ALERTA" || a.estado === "MANTENIMIENTO";
+                    const critico = a.horas_desde_servicio >= 100;
+                    return (
+                      <div key={a.id} className="px-4 py-3"
+                        style={{ borderBottom: i < activosSoc.length - 1 ? "1px solid var(--border)" : "none" }}>
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: ESTADO_DOT[a.estado as AssetStatus] }} />
+                          <span className="font-mono text-[13px] font-medium" style={{ color: "var(--navy)" }}>{a.matricula}</span>
+                          {(critico || necesitaRevision) && (
+                            <button
+                              onClick={() => setConfirmarRevision({ id: a.id, matricula: a.matricula })}
+                              aria-label="Marcar revisión realizada"
+                              title={critico ? `Requiere revisión · ${a.horas_desde_servicio}h` : "Marcar revisión realizada"}
+                              className="w-6 h-6 rounded-md flex items-center justify-center text-[12px] flex-shrink-0"
+                              style={{ background: critico ? "var(--amber-bg)" : "var(--green-bg)", color: critico ? "var(--amber-text)" : "var(--green-text)" }}>
+                              🔧
+                            </button>
+                          )}
+                          <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full flex-shrink-0"
+                            style={{ color: badge.color, background: badge.bg }}>
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: badge.color }} />
+                            {badge.label}
+                          </span>
+                          <button
+                            onClick={() => setConfirmar({ id: a.id, matricula: a.matricula })}
+                            aria-label="Eliminar activo"
+                            className="w-7 h-7 flex items-center justify-center rounded-lg text-[16px] flex-shrink-0 active:bg-[var(--red-bg)]"
+                            style={{ color: "var(--text-3)" }}>
+                            ×
+                          </button>
+                        </div>
+                        <p className="text-[13px] mt-1.5" style={{ color: "var(--foreground)" }}>{a.nombre}</p>
+                        <p className="text-[11px]" style={{ color: "var(--text-3)" }}>
+                          {a.tipo === "moto" ? "Moto de agua" : "Barco"}
+                          {a.modelo ? ` · ${a.modelo}` : ""}
+                          {a.capacidad ? ` · ${a.capacidad} pax` : ""}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className="text-[10px] flex-shrink-0" style={{ color: "var(--text-3)" }}>{a.horas_motor}h motor</span>
+                          <div className="h-1.5 rounded-full overflow-hidden flex-1" style={{ background: "var(--border)" }}>
+                            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: horaColor }} />
+                          </div>
+                          <span className="font-mono text-[11px] font-medium flex-shrink-0" style={{ color: horaColor }}>
+                            {a.horas_desde_servicio}h / 100h
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="hidden lg:block overflow-x-auto">
                   <div className="grid px-4 py-2 text-[10px] uppercase tracking-[0.06em] font-medium"
                     style={{ gridTemplateColumns: "14px 110px 110px 90px 120px 50px 90px 140px 120px 36px 32px", gap: "12px", minWidth: "1020px", color: "var(--text-3)", background: "var(--muted)", borderBottom: "1px solid var(--border)" }}>
                     <span /><span>Matrícula</span><span>Nombre</span><span>Tipo</span><span>Modelo</span>
