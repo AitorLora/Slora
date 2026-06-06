@@ -52,6 +52,11 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
+  // Endpoints de pruebas — solo en desarrollo (en prod la propia ruta devuelve 404)
+  if (process.env.NODE_ENV !== "production" && pathname.startsWith("/api/dev/")) {
+    return supabaseResponse;
+  }
+
   if (!user) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
@@ -61,6 +66,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ics)$).*)",
   ],
 };
